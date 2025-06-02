@@ -1,2 +1,2 @@
 # Easepark
-this is an Vehicle management system
+This is an Vehicle Management System
