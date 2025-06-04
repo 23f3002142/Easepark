@@ -7,10 +7,11 @@ db=SQLAlchemy()
 
 class Users(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username= db.column(db.String(100) , unique=True , nullable=False)
+    username= db.Column(db.String(100) , unique=True , nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=True)
-    password= db.column(db.String(100) , nullable=False)
-    role= db.column(db.String(15), nullable=False)
+    password= db.Column(db.String(100) , nullable=False)
+    role= db.Column(db.String(15), nullable=False)
+    reservations = db.relationship('Reservation', backref='user', lazy=True)
 
 class ParkingLot(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -19,6 +20,7 @@ class ParkingLot(UserMixin, db.Model):
     address = db.Column(db.String(255), nullable=False)
     pin_code = db.Column(db.String(10), nullable=False)
     max_spots = db.Column(db.Integer, nullable=False)
+    spots = db.relationship('ParkingSpot', backref='lot', lazy=True)
 
 
 class ParkingSpot(UserMixin, db.Model):
@@ -27,6 +29,7 @@ class ParkingSpot(UserMixin, db.Model):
     spot_number = db.Column(db.String(10), nullable=True) # spot number that can be given to human for finding the spot
     status = db.Column(db.String(1), default='A') # A can be considered as 'Available' at first.
     is_active = db.Column(db.Boolean, default=True) # this show wether the spot is accessible or disabled by the admin
+    reservations = db.relationship('Reservation', backref='spot', lazy=True)
 
 class Reservation(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
