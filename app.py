@@ -33,7 +33,9 @@ app.register_blueprint(auth)
 app.register_blueprint(user_blueprint)
 app.register_blueprint(admin_blueprint)
 
-
+@app.route('/')
+def home():
+    return render_template('home.html')
 
 if __name__=='__main__':
     with app.app_context():

@@ -1,0 +1,114 @@
+    
+    .carousel,
+    .carousel-inner,
+    .carousel-item {
+        height: calc(100vh - 70px); /* Adjust if your navbar is taller */
+    }
+
+    .carousel-item img {
+        object-fit: cover;
+        height: 100%;
+        width: 100%;
+    }
+
+    .navbar {
+        height: 70px; /* Approximate navbar height */
+    }
+
+    .carousel-caption {
+        background: rgba(0, 0, 0, 0.4);
+        padding: 10px;
+        border-radius: 5px;
+    }
+
+    .service-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .service-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .card-img-top {
+        height: 180px;
+        object-fit: contain;
+        padding: 1rem;
+    }
+
+    #about {
+        background-color: #f9f9f9;
+        border-top: 1px solid #e0e0e0;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    #about h2 {
+        font-weight: 700;
+    }
+
+    #about .lead {
+        font-size: 1.2rem;
+        font-weight: 500;
+    }
+
+    #about .border {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        background-color: #ffffff;
+    }
+
+    #about .border:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    #about .fs-2 {
+        color: #0d6efd; /* Bootstrap primary */
+    }
+
+    #about h6 {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    #about .small {
+        font-size: 0.85rem;
+        color: #555;
+    }
+
+    @media (max-width: 768px) {
+        #about .lead {
+            font-size: 1rem;
+        }
+
+        #about .border {
+            margin-bottom: 1rem;
+        }
+    }
+
+
+    #contact ul li span:first-child {
+        color: #fd7e14; /* Bootstrap warning */
+    }
+
+    #contact h2 {
+        font-weight: 700;
+    }
+
+    #contact .form-control {
+        border-radius: 0.4rem;
+        box-shadow: none;
+        border-color: #dee2e6;
+    }
+
+    #contact .btn-primary {
+        background-color: #fd7e14;
+        border: none;
+    }
+
+    #contact .btn-primary:hover {
+        background-color: #e76f00;
+    }
+
+
+
+

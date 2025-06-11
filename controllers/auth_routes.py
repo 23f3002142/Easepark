@@ -26,7 +26,7 @@ def register():
             db.session.rollback()
             flash('Username or email already exists.', 'danger')
     
-    return render_template('register.html')
+    return render_template('register1.html')
 
 @auth.route("/login", methods=['GET','POST'])
 def login():
@@ -37,7 +37,6 @@ def login():
 
         if user and check_password_hash(user.password , password):
             login_user(user)
-            flash('Logged in ','success')
             if user.role == 'admin':
                 return redirect(url_for('admin.dashboard'))
             else:
