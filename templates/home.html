@@ -58,7 +58,7 @@
 
     <!-- carousel -->
     <div class="custom-carousel" id="carousel">
-        <div id="carouselExampleCaptions" class="carousel slide">
+        <div id="carouselExampleCaptions" class="carousel slide" data-bs-ride="carousel" data-bs-interval="3000">
             <div class="carousel-indicators">
                 <button type="button" data-bs-target="#carouselExampleCaptions" data-bs-slide-to="0" class="active"
                     aria-current="true" aria-label="Slide 1"></button>
@@ -83,7 +83,7 @@
                     </div>
                 </div>
                 <div class="carousel-item">
-                    <img src="{{ url_for('static', filename='images/carousel2.jpeg') }}" class="d-block w-100"
+                    <img src="{{ url_for('static', filename='images/carousel1.jpg') }}" class="d-block w-100"
                         alt="...">
                     <div class="carousel-caption d-none d-md-block">
                         <h4>Secure & Reliable</h4>
@@ -309,8 +309,8 @@
                 <div class="col-md-4 col-lg-3 col-xl-3 mx-auto mt-3">
                     <h6 class="text-uppercase mb-4 fw-bold">Contact</h6>
                     <p><i class="me-2 "></i> support@easepark.com</p>
-                    <p><i class="me-2 "></i> +91 9876543210</p>
-                    <p><i class="me-2 "></i> IIIT Bhopal, India</p>
+                    <p><i class="me-2 "></i> +91 84588xxxxx</p>
+                    <p><i class="me-2 "></i> IIT Madras, India</p>
                 </div>
 
                 <!-- Socials -->
@@ -326,12 +326,13 @@
 
             <div class="row">
                 <div class="col-md-12 text-center">
-                    <p class="mb-0 text-muted">&copy; 2025 Easepark. All Rights Reserved.</p>
+                    <p class="mb-0 ">&copy; 2025 Easepark. All Rights Reserved.</p>
                 </div>
             </div>
         </div>
     </footer>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js" integrity="sha384-j1CDi7MgGQ12Z7Qab0qlWQ/Qqz24Gc6BM0thvEMVjHnfYGF0rmFCozFSxQBxwHKO" crossorigin="anonymous"></script>
 </body>
 
 </html>

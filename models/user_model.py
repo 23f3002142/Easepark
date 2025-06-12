@@ -15,7 +15,7 @@ class Users(UserMixin, db.Model):
 
 class ParkingLot(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    prime_location_name = db.Column(db.String(150), nullable=False)
+    location_name = db.Column(db.String(150), nullable=False)
     price = db.Column(db.Float, nullable=False)
     address = db.Column(db.String(255), nullable=False)
     pin_code = db.Column(db.String(10), nullable=False)
