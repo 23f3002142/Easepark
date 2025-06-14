@@ -5,17 +5,20 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager 
 from models.user_model import Users
 from models import db
-from models.user_model import Users, ParkingLot , ParkingSpot,Reservation ,db
+from models.user_model import Users, ParkingLot , ParkingSpot,Reservation
 from controllers.admin_routes import admin_blueprint
 from controllers.user_routes import user_blueprint
 from controllers.auth_routes import auth
+import os
+
+
 
 
 
 
 app=Flask(__name__)
 app.config['SECRET_KEY']= 'kdmn@1924'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///easepark.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///easepark_new.sqlite3'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 
@@ -32,6 +35,8 @@ def load_user(user_id):
 app.register_blueprint(auth)
 app.register_blueprint(user_blueprint)
 app.register_blueprint(admin_blueprint)
+
+print("🔍 DB being used:", os.path.abspath("easepark_new.db"))
 
 @app.route('/')
 def home():
@@ -53,3 +58,5 @@ if __name__=='__main__':
             db.session.commit()
 
     app.run(debug=True)
+    print(app.config['SQLALCHEMY_DATABASE_URI'])
+

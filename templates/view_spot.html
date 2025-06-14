@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Spot information</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-4Q6Gf2aSP4eDXB8Miphtr37CMZZQ5oXLH2yaXMJ2w8e2ZtHTl7GptT4jmndRuHDT" crossorigin="anonymous">
+</head>
+
+<body>
+    <div class="container mt-5">
+        <h4 class="text-center bg-warning p-2 rounded">View/delete Parking Spot</h4>
+        <div class="container text-center m-2 p-2">
+            <p><strong>ID : </strong> {{spot.id}}</p>
+            <p><strong>Spot Status : </strong> {{spot.status}}</p>
+
+            {% if spot.status == 'A' %}
+            <a href="{{url_for('admin.delete_spot',spot_id=spot.id)}}" class="btn btn-danger">Delete</a>
+            {% else %}
+            <p class="text-danger"> Note: Cannot delete an Occupied spot</p>
+            {% endif %}
+            <a href="{{url_for('admin.dashboard')}}" class="btn btn-secondary">Close</a>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-j1CDi7MgGQ12Z7Qab0qlWQ/Qqz24Gc6BM0thvEMVjHnfYGF0rmFCozFSxQBxwHKO"
+        crossorigin="anonymous"></script>
+</body>
+
+</html>
