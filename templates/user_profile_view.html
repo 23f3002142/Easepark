@@ -10,6 +10,7 @@
 
   <div class="container mt-5">
     <h3 class="text-center text-primary mb-4">Users Profile</h3>
+    <p class="card-text">Easepark Member Since: {{ user.member_since.date() }}</p>
     <table class="table table-bordered w-75 mx-auto">
       <!-- <tr><th>ID</th><td>{{ user.id }}</td></tr> -->
       <tr><th>Username</th><td>{{ user.username }}</td></tr>

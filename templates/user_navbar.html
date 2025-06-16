@@ -25,18 +25,21 @@
       <div class="collapse navbar-collapse" id="navbarSupportedContent">
         <ul class="navbar-nav mx-auto mb-2 mb-lg-0">
           <li class="nav-item">
-            <a class="nav-link active" aria-current="page" href="{{ url_for('user.dashboard') }}">Home</a>
+            <a class="nav-link active" aria-current="page" href="{{ url_for('user.dashboard') }}">Dashboard</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="#">Users</a>
+            <a class="nav-link" href="{{ url_for('user.book_spot') }}">Book Spot</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="#">Search</a>
+            <a class="nav-link" href="#">Search Parking</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('user.booking_history') }}">My Bookings</a>
           </li>
           <li class="nav-item">
             <a class="nav-link" href="#">Summary</a>
           </li>
-         
+
         </ul>
 
 
@@ -46,8 +49,8 @@
             Profile
           </button>
           <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="#">View profile</a></li>
-            <li><a class="dropdown-item" href="#">Edit profile</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('user.user_profile_view') }}">View profile</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('user.user_profile_edit') }}">Edit profile</a></li>
             <li><a class="dropdown-item" href="{{url_for('auth.logout')}}">logout</a></li>
           </ul>
         </div>

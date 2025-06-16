@@ -16,11 +16,13 @@ class Users(UserMixin, db.Model):
     phone_number = db.Column(db.String(15), unique=True, nullable=True)
     address = db.Column(db.String(255), nullable=True)
     pin_code = db.Column(db.String(10), nullable=True)
+    member_since = db.Column(db.DateTime, default=datetime.utcnow)
+    total_bookings = db.Column(db.Integer, default=0)
     reservations = db.relationship('Reservation', backref='user', lazy=True)
 
 class ParkingLot(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    location_name = db.Column(db.String(150), nullable=False)
+    parking_name = db.Column(db.String(150), nullable=False)
     price = db.Column(db.Float, nullable=False)
     address = db.Column(db.String(255), nullable=False)
     pin_code = db.Column(db.String(10), nullable=False)
@@ -41,8 +43,8 @@ class Reservation(UserMixin, db.Model):
     spot_id = db.Column(db.Integer, db.ForeignKey('parking_spot.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     vehicle_number = db.Column(db.String(20), nullable=True)
-    parking_timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    leaving_timestamp = db.Column(db.DateTime, nullable=True)
+    booking_timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    releasing_timestamp = db.Column(db.DateTime, nullable=True)
     cost_per_unit_time = db.Column(db.Float, nullable=False)
     total_cost = db.Column(db.Float, nullable=True)
     status = db.Column(db.String(20), default='active')  # active, completed, cancelled

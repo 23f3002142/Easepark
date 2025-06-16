@@ -1,0 +1,51 @@
+{% include 'user_navbar.html' %}
+
+<div class="container mt-5">
+  <h3 class="mb-4 text-primary text-center">Your Booking History</h3>
+
+  {% if history %}
+  <div class="table-responsive">
+    <table class="table table-bordered text-center">
+      <thead class="table-dark">
+        <tr>
+          <th>Spot Number</th>
+          <th>Lot Name</th>
+          <th>Vehicle number</th>
+          <th>From</th>
+          <th>To</th>
+          <th>Cost</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for res in history %}
+        <tr>
+          <td>{{ res.spot.spot_number }}</td>
+          <td>{{ res.spot.lot.parking_name }}</td>
+          <td>{{ res.vehicle_number or 'N/A' }}</td>
+          <td>{{ res.booking_timestamp.strftime('%d %b %Y, %I:%M %p') }}</td>
+          <td>
+            {% if res.releasing_timestamp %}
+              {{ res.releasing_timestamp.strftime('%d %b %Y, %I:%M %p') }}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td>₹{{ res.total_cost or '—' }}</td>
+          <td>
+            {% if res.status == 'active' %}
+              <a href="{{ url_for('user.release_spot', reservation_id=res.id) }}"
+                 class="btn btn-danger btn-sm">Release</a>
+            {% else %}
+              <span class="text-muted">Parked Out</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="text-muted text-center">You have no past or current bookings yet.</p>
+  {% endif %}
+</div>

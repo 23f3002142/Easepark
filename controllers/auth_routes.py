@@ -40,7 +40,7 @@ def login():
             if user.role == 'admin':
                 return redirect(url_for('admin.dashboard'))
             else:
-                return redirect(url_for('user.dashboard'))
+                return redirect(url_for('user.dashboard',user=user))
     
     return render_template("login.html")
 

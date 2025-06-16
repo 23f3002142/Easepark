@@ -2,6 +2,8 @@
 from flask import Blueprint,render_template,redirect,url_for,flash , request , abort
 from flask_login import login_required,current_user
 from models.user_model import Users,ParkingLot,ParkingSpot,db
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 admin_blueprint=Blueprint('admin',__name__,url_prefix='/dashboard')
 
@@ -24,7 +26,7 @@ def add_lot():
         pin_code = request.form['pin_code']
         max_spots = request.form['max_spots']
 
-        new_lot= ParkingLot(location_name=name,price=price,address=address,pin_code=pin_code,max_spots=max_spots ) #type: ignore
+        new_lot= ParkingLot(parking_name=name,price=price,address=address,pin_code=pin_code,max_spots=max_spots ) #type: ignore
         db.session.add(new_lot)
         db.session.commit()
 
@@ -105,7 +107,17 @@ def view_spot(spot_id):
             reservation = spot.reservations[0]
         else:
             reservation = None
-        return render_template('occspot.html',spot=spot,reservation=reservation)
+
+        if request.method == 'GET' and reservation != None:
+            now = datetime.now(ZoneInfo("Asia/Kolkata"))
+            booking_time = reservation.booking_timestamp.replace(tzinfo=ZoneInfo("Asia/Kolkata"))
+            duration = (now - booking_time).total_seconds() / 3600
+
+            duration = max(1, int(duration))
+            estimated_cost = duration * reservation.cost_per_unit_time
+        else:
+            estimated_cost = None
+        return render_template('occspot.html',spot=spot,reservation=reservation,estimated_cost=estimated_cost)
     
     return render_template('view_spot.html', spot=spot)
 

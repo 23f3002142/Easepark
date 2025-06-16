@@ -14,13 +14,12 @@
         <h4 class="text-center bg-warning p-2 rounded">Occupied Parking Spot Details</h4>
 
         <div class="border p-3 rounded shadow-sm bg-light">
-            <p><strong>Spot ID:</strong> {{ spot.id }}</p>
-            <p><strong>Customer ID:</strong> {{ reservation.user_id }}</p>
-            <p><strong>Username:</strong> {{ reservation.user.username }}</p>
+            <p><strong>Spot Number:</strong> {{ spot.spot_number }}</p>
+            <p><strong>Owner name:</strong> {{ reservation.user.full_name }}</p>
 
-            <p><strong>Date/Time of Parking:</strong> {{ reservation.parking_timestamp.strftime('%d-%m-%Y %H:%M') }}</p>
+            <p><strong>Date/Time of Parking:</strong> {{ reservation.booking_timestamp.strftime('%d-%m-%Y %H:%M') }}</p>
 
-            <p><strong>Est. Parking Cost:</strong> ₹{{ reservation.total_cost or "Pending" }}</p>
+            <p><strong>Est. Parking Cost:</strong> ₹{{ " %.2f"|format(estimated_cost) }}</p>
 
             <p><strong>Status:</strong> {{ reservation.status }}</p>
 
