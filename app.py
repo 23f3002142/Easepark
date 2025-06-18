@@ -18,7 +18,9 @@ import os
 
 app=Flask(__name__)
 app.config['SECRET_KEY']= 'kdmn@1924'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///easepark_new.sqlite3'
+
+basedir = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'easepark_new.sqlite3')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 
@@ -37,7 +39,7 @@ app.register_blueprint(auth)
 app.register_blueprint(user_blueprint)
 app.register_blueprint(admin_blueprint)
 
-print("🔍 DB being used:", os.path.abspath("easepark_new.db"))
+# print("🔍 DB being used:", os.path.abspath("easepark_new.db"))
 
 @app.route('/')
 def home():
@@ -59,5 +61,5 @@ if __name__=='__main__':
             db.session.commit()
 
     app.run(debug=True)
-    print(app.config['SQLALCHEMY_DATABASE_URI'])
+    
 

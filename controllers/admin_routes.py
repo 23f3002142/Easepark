@@ -1,8 +1,9 @@
 
 from flask import Blueprint,render_template,redirect,url_for,flash , request , abort
 from flask_login import login_required,current_user
-from models.user_model import Users,ParkingLot,ParkingSpot,db
-from datetime import datetime
+from sqlalchemy import func
+from models.user_model import Users,ParkingLot,ParkingSpot,Reservation,db
+from datetime import datetime , timedelta 
 from zoneinfo import ZoneInfo
 
 admin_blueprint=Blueprint('admin',__name__,url_prefix='/dashboard')
@@ -142,7 +143,7 @@ def delete_spot(spot_id):
 def view_users():
     if current_user.role != 'admin':
         abort(404)
-    users=Users.query.all()
+    users=Users.query.filter(Users.role != 'admin').all()
     return render_template('admin_users.html',users=users)
 
 @admin_blueprint.route('/profile/view')
@@ -173,3 +174,141 @@ def admin_profile_edit():
             flash('Profile updated successfully!', 'success')
             return redirect(url_for('admin.view_profile'))
     return render_template('admin_profile_edit.html',user=user)
+
+
+@admin_blueprint.route('/user-history/<int:user_id>')
+@login_required
+def user_booking_history(user_id):
+    if current_user.role != 'admin':
+        abort(403)
+
+    user = Users.query.get_or_404(user_id)
+    history = Reservation.query.filter_by(user_id=user.id).order_by(
+        Reservation.booking_timestamp.desc()
+    ).all()
+
+     # Summary calculations
+    total_amount_paid = sum(res.total_cost or 0 for res in history)
+    
+    # Total duration parked (sum of all completed bookings)
+    total_duration_hours = 0
+    for res in history:
+        if res.booking_timestamp and res.releasing_timestamp:
+            duration = (res.releasing_timestamp - res.booking_timestamp).total_seconds() / 3600
+            total_duration_hours += duration
+    
+    total_duration_hours = round(total_duration_hours, 2)
+
+    total_bookings = len(history)
+    first_booking = history[-1].booking_timestamp if history else None
+    latest_booking = history[0].booking_timestamp if history else None
+
+    return render_template(
+        'admin_user_history.html',
+        user=user,
+        history=history,
+        total_amount_paid=total_amount_paid,
+        total_duration_hours=total_duration_hours,
+        total_bookings=total_bookings,
+        first_booking=first_booking,
+        latest_booking=latest_booking
+    )
+
+
+
+@admin_blueprint.route('/summary')
+@login_required
+def admin_summary():
+    # first chart for avaialabe to occupany ratio 
+    total_spots=ParkingSpot.query.count()
+    occupied_spots=ParkingSpot.query.filter(ParkingSpot.status!='A').count()
+    available_spots=total_spots-occupied_spots
+
+    #second chart for weekly trend 
+    today = datetime.utcnow().date()
+    one_year_ago = today - timedelta(days=365)
+
+    monthly_data = db.session.query(
+                                    func.strftime('%Y-%m', Reservation.booking_timestamp),  # Year-Month format
+                                    func.count(Reservation.id)
+                                ).filter(
+                                    Reservation.booking_timestamp >= one_year_ago
+                                ).group_by(
+                                    func.strftime('%Y-%m', Reservation.booking_timestamp)
+                                ).order_by(
+                                    func.strftime('%Y-%m', Reservation.booking_timestamp)
+                                ).all()
+
+    months = []
+    bookings_per_month = []
+
+    for month_str, count in monthly_data:
+        # convert "YYYY-MM" → "MonthName YYYY"
+        month_dt = datetime.strptime(month_str, "%Y-%m")
+        month_label = month_dt.strftime("%b %Y")  # Example: Jan 2025
+        months.append(month_label)
+        bookings_per_month.append(count)
+
+
+    #third chart 
+    # Get number of new users registered per month (past 12 months)
+    today = datetime.today()
+    one_year_ago = today.replace(year=today.year - 1)
+    
+    registration_stats = (
+    db.session.query(
+        func.strftime('%Y-%m', Users.member_since).label('month'),
+        func.count(Users.id).label('Users_count')
+    )
+    .filter(Users.member_since >= one_year_ago)
+    .group_by(func.strftime('%Y-%m', Users.member_since))
+    .order_by(func.strftime('%Y-%m', Users.member_since))
+    .all()
+    )
+
+    # Prepare data for chart
+    labels = [row.month for row in registration_stats]
+    data = [row.Users_count for row in registration_stats]
+
+    #chart 4
+    top_lots = (
+        db.session.query(
+            ParkingLot.parking_name,
+            func.count(Reservation.id).label('usage_count')
+        )
+        .join(ParkingSpot, ParkingSpot.lot_id == ParkingLot.id)
+        .join(Reservation, Reservation.spot_id == ParkingSpot.id)
+        .group_by(ParkingLot.id)
+        .order_by(func.count(Reservation.id).desc())
+        .limit(10)  # Top 10 lots
+        .all()
+    )
+
+    # Prepare data for chart
+    labels1 = [row.parking_name for row in top_lots]
+    data1 = [row.usage_count for row in top_lots]
+
+    #chart 5 
+    avg_parking_time = (
+        db.session.query(
+            ParkingLot.parking_name,
+            func.avg(func.julianday(Reservation.releasing_timestamp) - func.julianday(Reservation.booking_timestamp)).label('avg_duration_days')
+        )
+        .join(ParkingSpot, ParkingSpot.lot_id == ParkingLot.id)
+        .join(Reservation, Reservation.spot_id == ParkingSpot.id)
+        .filter(Reservation.releasing_timestamp.isnot(None))  # Only completed reservations
+        .group_by(ParkingLot.id)
+        .order_by(func.avg(func.julianday(Reservation.releasing_timestamp) - func.julianday(Reservation.booking_timestamp)).desc())
+        .limit(10)  # Top 10 lots by usage
+        .all()
+    )
+
+    labels2 = [row.parking_name for row in avg_parking_time]
+    data2 = [round(row.avg_duration_days * 24, 2) for row in avg_parking_time]
+
+    return render_template('admin_summary.html',total_spots=total_spots,occupied_spots=occupied_spots,available_spots=available_spots,
+                           months=months,
+                           bookings_per_month=bookings_per_month,
+                           labels=labels, data=data,
+                           labels1=labels1, data1=data1,
+                           labels2=labels2, data2=data2)

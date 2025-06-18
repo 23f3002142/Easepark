@@ -11,19 +11,19 @@ user_blueprint=Blueprint('user',__name__,url_prefix='/dashboard')
 @user_blueprint.route('/user')
 @login_required
 def dashboard():
-    
+
     if current_user.role != 'user':
         return "Unauthorised"
-    else :
-         # Get all active reservations of the user
+    else:
+        # Get all active reservations of the user
         active_reservations = Reservation.query.filter_by(user_id=current_user.id, status='active').all()
-        
+
         active_bookings = []
         for res in active_reservations:
             lot = ParkingLot.query.get(res.spot.lot_id)
             if lot is None:
                 abort(404)
-            
+
             local_time = res.booking_timestamp.astimezone(ZoneInfo("Asia/Kolkata"))
             booking_date = local_time.strftime('%d %b %Y')
             time_range = local_time.strftime('%I:%M %p') + " - Now"
@@ -35,30 +35,36 @@ def dashboard():
                 "time_range": time_range
             })
 
-            user_pin = current_user.pin_code
+        # This block should NOT be inside the for loop
+        user_pin = current_user.pin_code
 
-            # Get all lots matching user's pin code
-            lots = ParkingLot.query.filter_by(pin_code=user_pin).all()
+        # Get all lots matching user's pin code
+        lots = ParkingLot.query.filter_by(pin_code=user_pin).all()
 
-            available_lots = []
-            for lot in lots:
-                total_spots = ParkingSpot.query.filter_by(lot_id=lot.id).count()
-                free_spots = ParkingSpot.query.filter_by(lot_id=lot.id, status='A').count()
+        available_lots = []
+        for lot in lots:
+            total_spots = ParkingSpot.query.filter_by(lot_id=lot.id).count()
+            free_spots = ParkingSpot.query.filter_by(lot_id=lot.id, status='A').count()
 
-                available_lots.append({
-                    'name': lot.parking_name,
-                    'free_spots': free_spots,
-                    'total_spots': total_spots
-                })
+            available_lots.append({
+                'name': lot.parking_name,
+                'free_spots': free_spots,
+                'total_spots': total_spots
+            })
 
+        notifications = [
+            "🚗 New parking lots added recently — check nearby lots now!",
+            "📄 View your booking history and release spots when done.",
+            "🕒 Charges are calculated hourly — remember to release your spot in time!",
+        ]
 
-            notifications = [
-                "🚗 New parking lots added recently — check nearby lots now!",
-                "📄 View your booking history and release spots when done.",
-                "🕒 Charges are calculated hourly — remember to release your spot in time!",
-            ]
-
-        return render_template('user_dashboard.html', user=current_user, active_bookings=active_bookings,available_lots=available_lots, notifications=notifications)
+        return render_template(
+            'user_dashboard.html',
+            user=current_user,
+            active_bookings=active_bookings,
+            available_lots=available_lots,
+            notifications=notifications
+        )
     
 @user_blueprint.route('/profile/view')
 @login_required
