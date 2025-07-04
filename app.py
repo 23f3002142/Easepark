@@ -39,7 +39,7 @@ app.register_blueprint(auth)
 app.register_blueprint(user_blueprint)
 app.register_blueprint(admin_blueprint)
 
-# print("🔍 DB being used:", os.path.abspath("easepark_new.db"))
+
 
 @app.route('/')
 def home():
@@ -61,5 +61,3 @@ if __name__=='__main__':
             db.session.commit()
 
     app.run(debug=True)
-    
-
