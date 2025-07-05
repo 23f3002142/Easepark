@@ -33,7 +33,7 @@
             <a class="nav-link" href="#">Search</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="#">Summary</a>
+            <a class="nav-link" href="{{ url_for('admin.admin_summary') }}">Summary</a>
           </li>
 
         </ul>
@@ -84,7 +84,7 @@
             <td>{{ user.total_bookings }}</td>
             <td><a href="{{ url_for('admin.user_booking_history', user_id=user.id) }}" class="btn btn-info btn-sm">View
                 History</a>
-            </td>
+            </td> 
           </tr>
           {% endfor %}
         </tbody>

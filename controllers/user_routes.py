@@ -3,6 +3,7 @@ from flask import Blueprint,render_template,flash,request,url_for,abort,redirect
 from flask_login import login_required,current_user
 from models.user_model import Users,ParkingLot,ParkingSpot,Reservation,db
 from datetime import datetime , timedelta
+from collections import defaultdict
 from zoneinfo import ZoneInfo
 from sqlalchemy import or_
 
@@ -192,3 +193,116 @@ def release_spot(reservation_id):
         flash(f"Spot released successfully. Total cost: ₹{total_cost}", "success")
         return redirect(url_for('user.dashboard'))
     return render_template('release_spot.html', reservation=reservation, spot=spot, lot=lot,datetime=datetime,timedelta=timedelta,estimated_cost=estimated_cost)
+
+
+
+@user_blueprint.route('/user-summary')
+@login_required
+def user_summary():
+    user=current_user
+    if current_user.role != 'user':
+        abort(403)
+
+    user = Users.query.get_or_404(user.id)
+    history = Reservation.query.filter_by(user_id=user.id).order_by(
+        Reservation.booking_timestamp.desc()
+    ).all()
+
+     # Summary calculations
+    total_amount_paid = sum(res.total_cost or 0 for res in history)
+    
+
+
+
+    # for chart-1 
+    # Total duration parked (sum of all completed bookings)
+    total_duration_hours = 0
+    for res in history:
+        if res.booking_timestamp and res.releasing_timestamp:
+            duration = (res.releasing_timestamp - res.booking_timestamp).total_seconds() / 3600
+            total_duration_hours += duration
+    
+    total_duration_hours = round(total_duration_hours, 2)
+
+    total_bookings = len(history)
+    first_booking = history[-1].booking_timestamp if history else None
+    latest_booking = history[0].booking_timestamp if history else None
+
+    # Prepare booking counts by date
+    booking_counts = defaultdict(int)
+    for res in history:
+        if res.booking_timestamp:
+            date_str = res.booking_timestamp.strftime('%d %b')
+            booking_counts[date_str] += 1
+
+    # Sort by date
+    sorted_dates = sorted(booking_counts.items(), key=lambda x: datetime.strptime(x[0], '%d %b'))
+    chart_labels = [d[0] for d in sorted_dates]
+    chart_data = [d[1] for d in sorted_dates]
+
+    #for chart 2
+
+    duration_buckets = {
+        '<3 hrs': 0,
+        '3–6 hrs': 0,
+        '6–9 hrs': 0,
+        '9–12 hrs': 0,
+        '12+ hrs': 0,
+        '1 day+': 0,
+        '>2 days': 0
+    }
+
+    for res in history:
+        if res.booking_timestamp and res.releasing_timestamp:
+            duration = res.releasing_timestamp - res.booking_timestamp
+            duration_hours = duration.total_seconds() / 3600
+            
+            
+            if duration_hours < 3:
+                duration_buckets['<3 hrs'] += 1
+            elif duration_hours <= 6:
+                duration_buckets['3–6 hrs'] += 1
+            elif duration_hours <= 9:
+                duration_buckets['6–9 hrs'] += 1
+            elif duration_hours <= 12:
+                duration_buckets['9–12 hrs'] += 1
+            elif duration_hours <= 24:
+                duration_buckets['12+ hrs'] += 1
+            elif duration_hours <= 48:
+                duration_buckets['1 day+'] += 1
+            else:
+                duration_buckets['>2 days'] += 1
+
+
+
+    #CHart 3
+    booking_labels = []
+    duration_values = []
+    cost_values = []
+
+    for idx, res in enumerate(history):
+        if res.booking_timestamp and res.releasing_timestamp and res.total_cost:
+            duration = res.releasing_timestamp - res.booking_timestamp
+            hours = duration.total_seconds() / 3600
+            booking_labels.append(f"Booking {idx + 1}")
+            duration_values.append(round(hours, 2))
+            cost_values.append(res.total_cost)
+
+
+    return render_template(
+    'user_summary.html',
+    user=user,
+    history=history,
+    total_amount_paid=total_amount_paid,
+    total_duration_hours=total_duration_hours,
+    total_bookings=total_bookings,
+    first_booking=first_booking,
+    latest_booking=latest_booking,
+    chart_labels=chart_labels,
+    chart_data=chart_data,
+    chart_duration_labels = list(duration_buckets.keys()),
+    chart_duration_data = list(duration_buckets.values()),
+    chart_booking_labels=booking_labels,
+    chart_duration_data_each=duration_values,
+    chart_cost_data_each=cost_values
+)

@@ -29,7 +29,7 @@
             <a class="nav-link" href="#">Search</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="#">Summary</a>
+            <a class="nav-link" href="{{ url_for('admin.admin_summary') }}">Summary</a>
           </li>
 
         </ul>
@@ -41,8 +41,8 @@
             Profile
           </button>
           <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="#">View profile</a></li>
-            <li><a class="dropdown-item" href="#">Edit profile</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('admin.admin_profile_view') }}">View profile</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('admin.admin_profile_edit') }}">Edit profile</a></li>
             <li><a class="dropdown-item" href="{{url_for('auth.logout')}}">logout</a></li>
           </ul>
         </div>

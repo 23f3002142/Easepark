@@ -3,14 +3,13 @@ from flask import Flask,render_template
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager 
-from models.user_model import Users
 from models import db
 from models.user_model import Users, ParkingLot , ParkingSpot,Reservation
 from controllers.admin_routes import admin_blueprint
 from controllers.user_routes import user_blueprint
 from controllers.auth_routes import auth
 import os
-
+#http://127.0.0.1:5000
 
 
 
@@ -37,7 +36,7 @@ def load_user(user_id):
 
 app.register_blueprint(auth)
 app.register_blueprint(user_blueprint)
-app.register_blueprint(admin_blueprint)
+app.register_blueprint(admin_blueprint,)
 
 
 

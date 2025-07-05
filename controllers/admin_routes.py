@@ -41,6 +41,39 @@ def add_lot():
     
     return render_template('add_lot.html')
 
+
+@admin_blueprint.route('/profile/view')
+@login_required
+def admin_profile_view():
+    if current_user.role != 'admin':
+        abort(404)
+    
+    return render_template('admin_profile_view.html',user=current_user)
+
+
+@admin_blueprint.route('/profile/edit', methods=['GET','POST'])
+@login_required
+def admin_profile_edit():
+    if current_user.role != 'admin':
+        abort(404)
+    user=current_user
+
+    if request.method == 'POST':
+        if request.method == 'POST':
+            user.full_name = request.form['full_name']
+            user.username = request.form['username']
+            user.email = request.form['email']
+            user.phone_number = request.form['phone_number']
+            user.address = request.form['address']
+            user.pin_code = request.form['pin_code']
+            db.session.commit()
+            flash('Profile updated successfully!', 'success')
+            return redirect(url_for('admin.view_profile'))
+    return render_template('admin_profile_edit.html',user=user)
+
+
+
+
 # Edit parking lot
 @admin_blueprint.route('/editlot/<int:lot_id>' , methods=['GET','POST'])
 def edit_lot(lot_id):
@@ -138,6 +171,8 @@ def delete_spot(spot_id):
     flash('The spot is deleted Successfully','success')
     return redirect(url_for('admin.dashboard'))
 
+
+#admin user Section
 @admin_blueprint.route('/users')
 @login_required
 def view_users():
@@ -146,34 +181,6 @@ def view_users():
     users=Users.query.filter(Users.role != 'admin').all()
     return render_template('admin_users.html',users=users)
 
-@admin_blueprint.route('/profile/view')
-@login_required
-def admin_profile_view():
-    if current_user.role != 'admin':
-        abort(404)
-    
-    return render_template('admin_profile_view.html',user=current_user)
-
-
-@admin_blueprint.route('/profile/edit', methods=['GET','POST'])
-@login_required
-def admin_profile_edit():
-    if current_user.role != 'admin':
-        abort(404)
-    user=current_user
-
-    if request.method == 'POST':
-        if request.method == 'POST':
-            user.full_name = request.form['full_name']
-            user.username = request.form['username']
-            user.email = request.form['email']
-            user.phone_number = request.form['phone_number']
-            user.address = request.form['address']
-            user.pin_code = request.form['pin_code']
-            db.session.commit()
-            flash('Profile updated successfully!', 'success')
-            return redirect(url_for('admin.view_profile'))
-    return render_template('admin_profile_edit.html',user=user)
 
 
 @admin_blueprint.route('/user-history/<int:user_id>')
