@@ -5,7 +5,7 @@ from models.user_model import Users,ParkingLot,ParkingSpot,Reservation,db
 from datetime import datetime , timedelta
 from collections import defaultdict
 from zoneinfo import ZoneInfo
-from sqlalchemy import or_
+from sqlalchemy import or_,and_
 
 user_blueprint=Blueprint('user',__name__,url_prefix='/dashboard')
 
@@ -40,7 +40,7 @@ def dashboard():
         user_pin = current_user.pin_code
 
         # Get all lots matching user's pin code
-        lots = ParkingLot.query.filter_by(pin_code=user_pin).all()
+        lots = ParkingLot.query.filter_by(pin_code=user_pin,is_active=True).all()
 
         available_lots = []
         for lot in lots:
@@ -102,13 +102,17 @@ def book_spot():
     search_query= request.args.get('search','')
     lots=[]
 
-    if search_query :
-        lots=ParkingLot.query.filter(
-                        or_(ParkingLot.parking_name.ilike(f'%{search_query}%'),
-                           ParkingLot.address.ilike(f'%{search_query}%'),
-                           ParkingLot.pin_code.ilike(f'%{search_query}%')
-                            )
-                           ).all()
+    if search_query:
+        lots = ParkingLot.query.filter(
+            and_(
+                ParkingLot.is_active == True,#type: ignore
+                or_(
+                    ParkingLot.parking_name.ilike(f'%{search_query}%'),
+                    ParkingLot.address.ilike(f'%{search_query}%'),
+                    ParkingLot.pin_code.ilike(f'%{search_query}%')
+                )
+            )
+        ).all()
     
 
     return render_template('book_spot.html', lots=lots,search_query=search_query)

@@ -27,6 +27,7 @@ class ParkingLot(UserMixin, db.Model):
     address = db.Column(db.String(255), nullable=False)
     pin_code = db.Column(db.String(10), nullable=False)
     max_spots = db.Column(db.Integer, nullable=False)
+    is_active = db.Column(db.Boolean, default=True)  
     spots = db.relationship('ParkingSpot', backref='lot',cascade="all, delete", lazy=True)
 
 

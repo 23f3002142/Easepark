@@ -14,14 +14,16 @@ def dashboard():
     if current_user.role != 'admin':
         return "Unauthorised"
     else :
-        lots= ParkingLot.query.all()
+        lots= ParkingLot.query.filter_by(is_active=True).all()
         return render_template('admin_dashboard.html',Parking_lots=lots)
 
  # adding a new parking lot
+
 @admin_blueprint.route('/addlot' , methods=['GET','POST'])
+@login_required
 def add_lot():
     if request.method=='POST':
-        name = request.form['location_name']
+        name = request.form['parking_name']
         price = request.form['price']
         address = request.form['address']
         pin_code = request.form['pin_code']
@@ -42,7 +44,7 @@ def add_lot():
     return render_template('add_lot.html')
 
 
-@admin_blueprint.route('/profile/view')
+@admin_blueprint.route('admin/profile/view')
 @login_required
 def admin_profile_view():
     if current_user.role != 'admin':
@@ -51,7 +53,7 @@ def admin_profile_view():
     return render_template('admin_profile_view.html',user=current_user)
 
 
-@admin_blueprint.route('/profile/edit', methods=['GET','POST'])
+@admin_blueprint.route('admin/profile/edit', methods=['GET','POST'])
 @login_required
 def admin_profile_edit():
     if current_user.role != 'admin':
@@ -76,12 +78,13 @@ def admin_profile_edit():
 
 # Edit parking lot
 @admin_blueprint.route('/editlot/<int:lot_id>' , methods=['GET','POST'])
+@login_required
 def edit_lot(lot_id):
     lot=ParkingLot.query.filter_by(id=lot_id).first()
     if lot is None:
         abort(404)
     if request.method=='POST':
-        lot.location_name = request.form['location_name']
+        lot.parking_name = request.form['parking_name']
         lot.price = request.form['price']
         lot.address = request.form['address']
         lot.pin_code = request.form['pin_code']
@@ -125,7 +128,14 @@ def delete_lot(lot_id):
     lot=ParkingLot.query.filter_by(id=lot_id).first()
     if lot is None:
         abort(404)
-    db.session.delete(lot)
+    for spot in lot.spots:
+        for reservation in spot.reservations:
+            if reservation.status == 'active':
+                flash("Cannot delete: One or more spots are currently booked.", "danger")
+                return redirect(url_for("admin.dashboard"))
+
+    # No active bookings — delete the lot
+    lot.is_active = False
     db.session.commit()
     flash('Parking lot is deleted','danger')
     return redirect(url_for('admin.dashboard'))
@@ -319,3 +329,34 @@ def admin_summary():
                            labels=labels, data=data,
                            labels1=labels1, data1=data1,
                            labels2=labels2, data2=data2)
+
+
+@admin_blueprint.route('admin/summary', methods=['GET','POST'])
+@login_required
+def admin_search():
+    results=[]
+    query=''
+    search_type=''
+
+    if request.method=='POST':
+        search_type = request.form.get('search_type')   
+        query = (request.form.get('query') or '').strip().lower()
+
+        if search_type=='user':
+            results= Users.query.filter(
+                (Users.username.ilike(f"%{query}%")) |
+                (Users.full_name.ilike(f"%{query}%")) |
+                (Users.email.ilike(f"%{query}%"))
+            ).all()
+        elif search_type =='lot_name':
+            results = ParkingLot.query.filter(
+                ParkingLot.parking_name.ilike(f"%{query}%")
+            ).all()
+        
+        elif search_type =='lot_number':
+            results = ParkingLot.query.filter(
+                ParkingLot.pin_code.ilike(f"%{query}%")
+            ).all()
+
+    return render_template('admin_search.html',results=results,search_type=search_type,query=query)
+    
