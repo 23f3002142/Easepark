@@ -15,7 +15,7 @@
                 <option value="">Search By</option>
                 <option value="user" {% if search_type == 'user' %}selected{% endif %}>User</option>
                 <option value="lot_name" {% if search_type == 'lot_name' %}selected{% endif %}>Parking Lot by Name</option>
-                <option value="lot_number" {% if search_type == 'lot_number' %}selected{% endif %}>Parking Lot by Number</option>
+                <option value="lot_number" {% if search_type == 'lot_number' %}selected{% endif %}>Parking Lot by PinCode</option>
             </select>
 
             <input type="text" name="query" value="{{ query }}" class="form-control w-50" placeholder="Enter search term..." required>

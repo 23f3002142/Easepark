@@ -1,10 +1,11 @@
 
 from flask import Blueprint,render_template,redirect,url_for,flash , request , abort
 from flask_login import login_required,current_user
-from sqlalchemy import func
+from sqlalchemy import func , is_,or_
 from models.user_model import Users,ParkingLot,ParkingSpot,Reservation,db
 from datetime import datetime , timedelta 
 from zoneinfo import ZoneInfo
+
 
 admin_blueprint=Blueprint('admin',__name__,url_prefix='/dashboard')
 
@@ -348,13 +349,15 @@ def admin_search():
                 (Users.full_name.ilike(f"%{query}%")) |
                 (Users.email.ilike(f"%{query}%"))
             ).all()
-        elif search_type =='lot_name':
+        elif search_type == 'lot_name':
             results = ParkingLot.query.filter(
+                ParkingLot.is_active == True,#type:ignore
                 ParkingLot.parking_name.ilike(f"%{query}%")
             ).all()
-        
-        elif search_type =='lot_number':
+
+        elif search_type == 'lot_number':
             results = ParkingLot.query.filter(
+                ParkingLot.is_active == True,#type:ignore
                 ParkingLot.pin_code.ilike(f"%{query}%")
             ).all()
 
