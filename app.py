@@ -54,16 +54,4 @@ def home():
 if __name__=='__main__':
     with app.app_context():
         db.create_all()
-
-        # admin = Users.query.filter_by(username='admin').first()
-        # if not admin:
-        #     admin = Users(
-        #         username='admin', # type: ignore
-        #         email='adminxyz@gmail.com',# type: ignore
-        #         password=generate_password_hash('admin123'),# type: ignore
-        #         role='admin' # type: ignore
-        #     )
-        #     db.session.add(admin)
-        #     db.session.commit()
-
     app.run(debug=True)

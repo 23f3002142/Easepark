@@ -1,0 +1,223 @@
+
+openapi: 3.0.0
+info:
+  title: Vehicle Parking Management System API
+  version: 1.0.0
+  description: Combined API specification for admin, user, and auth routes
+
+paths:
+  /register:
+    post:
+      summary: User Registration
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: User registered
+
+  /login:
+    post:
+      summary: User Login
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: User logged in
+
+  /logout:
+    get:
+      summary: User Logout
+      responses:
+        '200':
+          description: User logged out
+
+  /dashboard/admin:
+    get:
+      summary: Admin Dashboard
+      responses:
+        '200':
+          description: Admin view of all lots
+
+  /dashboard/addlot:
+    post:
+      summary: Add Parking Lot
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                parking_name:
+                  type: string
+                price:
+                  type: number
+                address:
+                  type: string
+                pin_code:
+                  type: string
+                max_spots:
+                  type: integer
+      responses:
+        '200':
+          description: Lot added
+
+  /dashboard/editlot/{lot_id}:
+    post:
+      summary: Edit Parking Lot
+      parameters:
+        - name: lot_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lot updated
+
+  /dashboard/deletelot/{lot_id}:
+    get:
+      summary: Delete Parking Lot
+      parameters:
+        - name: lot_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lot deleted
+
+  /dashboard/user:
+    get:
+      summary: User Dashboard
+      responses:
+        '200':
+          description: User's current reservations and lot availability
+
+  /dashboard/book:
+    get:
+      summary: Search and View Available Lots
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search by name, address, or pin code
+      responses:
+        '200':
+          description: Search result for lots
+
+  /dashboard/book/{lot_id}:
+    post:
+      summary: Reserve Spot in Lot
+      parameters:
+        - name: lot_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                vehicle_number:
+                  type: string
+      responses:
+        '200':
+          description: Spot booked
+
+  /dashboard/release/{reservation_id}:
+    post:
+      summary: Release Reserved Spot
+      parameters:
+        - name: reservation_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Spot released and cost calculated
+
+  /dashboard/history:
+    get:
+      summary: User Booking History
+      responses:
+        '200':
+          description: Booking history view
+
+  /dashboard/users:
+    get:
+      summary: Admin View All Users
+      responses:
+        '200':
+          description: List of users
+
+  /dashboard/user-history/{user_id}:
+    get:
+      summary: Admin View Booking History of a User
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Detailed history and summary
+
+  /dashboard/summary:
+    get:
+      summary: Admin Summary Page
+      responses:
+        '200':
+          description: Stats and charts data
+
+  /dashboard/admin/summary:
+    post:
+      summary: Admin Search Functionality
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                search_type:
+                  type: string
+                query:
+                  type: string
+      responses:
+        '200':
+          description: Search result for admin
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: session

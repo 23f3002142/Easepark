@@ -1,7 +1,7 @@
 
 from flask import Blueprint,render_template,redirect,url_for,flash , request , abort
 from flask_login import login_required,current_user
-from sqlalchemy import func , is_,or_
+from sqlalchemy import func ,or_
 from models.user_model import Users,ParkingLot,ParkingSpot,Reservation,db
 from datetime import datetime , timedelta 
 from zoneinfo import ZoneInfo
@@ -147,24 +147,33 @@ def view_spot(spot_id):
     spot = ParkingSpot.query.filter_by(id=spot_id).first()
     if spot is None:
         abort(404)
-    if spot.status=='O':
-        if spot.reservations:
-            reservation = spot.reservations[0]
-        else:
-            reservation = None
 
-        if request.method == 'GET' and reservation != None:
-            now = datetime.now(ZoneInfo("Asia/Kolkata"))
-            booking_time = reservation.booking_timestamp.replace(tzinfo=ZoneInfo("Asia/Kolkata"))
+    if spot.status == 'O':
+        now = datetime.now()
+
+        # Get the active reservation
+        reservation = (
+            Reservation.query
+            .filter(
+                Reservation.spot_id == spot.id,
+                Reservation.status == 'active'
+            )
+            .order_by(Reservation.booking_timestamp.desc())
+            .first()
+        )
+
+        if reservation:
+            booking_time = reservation.booking_timestamp
             duration = (now - booking_time).total_seconds() / 3600
-
             duration = max(1, int(duration))
             estimated_cost = duration * reservation.cost_per_unit_time
         else:
             estimated_cost = None
-        return render_template('occspot.html',spot=spot,reservation=reservation,estimated_cost=estimated_cost)
-    
+
+        return render_template('occspot.html', spot=spot, reservation=reservation, estimated_cost=estimated_cost)
+
     return render_template('view_spot.html', spot=spot)
+
 
 #can delete a spot
 @admin_blueprint.route('/deletespot/<int:spot_id>')
@@ -324,7 +333,7 @@ def admin_summary():
     labels2 = [row.parking_name for row in avg_parking_time]
     data2 = [round(row.avg_duration_days * 24, 2) for row in avg_parking_time]
 
-    return render_template('admin_summary.html',total_spots=total_spots,occupied_spots=occupied_spots,available_spots=available_spots,
+    return render_template('admin_summary.html.jinja',total_spots=total_spots,occupied_spots=occupied_spots,available_spots=available_spots,
                            months=months,
                            bookings_per_month=bookings_per_month,
                            labels=labels, data=data,

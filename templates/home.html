@@ -69,7 +69,7 @@
             </div>
             <div class="carousel-inner">
                 <div class="carousel-item active">
-                    <img src="{{ url_for('static', filename='images/carousel4.png') }}" class="d-block w-100" alt="...">
+                    <img src="{{ url_for('static', filename='images/carousel2.jpeg') }}" class="d-block w-100" alt="...">
                     <div class="carousel-caption d-none d-md-block">
                         <h4>Smart & Seamless Parking</h4>
                         <p>Hassle-Free Parking at Your Fingertips”</p>
@@ -104,67 +104,73 @@
         </div>
     </div>
 
-    <!-- cards -->
     <div class="container py-3" id="services">
+    <h2 class="text-center mb-4">Our Core Services</h2>
+    <div class="row justify-content-center g-4">
 
-        <h2 class="text-center mb-4">Our Core Services</h2>
-        <div class="row justify-content-center g-4">
-
-
-
-            <div class="col-md-6 col-lg-5">
-                <div class="card h-100 shadow service-card">
-                    <img src="{{ url_for('static', filename='images/card1.png') }}" class="card-img-top" alt="...">
-                    <div class="card-body">
-                        <h5 class="card-title">Real-Time Spot Availability</h5>
-                        <p class="card-text">Instant updates to help you find and book available parking spots near you.
-                        </p>
-                        <a href="#" class="btn btn-primary">Learn More</a>
-                    </div>
+        <!-- Card 1 -->
+        <div class="col-md-6 col-lg-5">
+            <div class="card h-100 shadow">
+                <img src="{{ url_for('static', filename='images/card1.png') }}"
+                     class="card-img-top img-fluid"
+                     alt="..."
+                     style="height: 200px; object-fit: contain;">
+                <div class="card-body">
+                    <h5 class="card-title">Real-Time Spot Availability</h5>
+                    <p class="card-text">Instant updates to help you find and book available parking spots near you.</p>
+                    <a href="#" class="btn btn-primary">Learn More</a>
                 </div>
             </div>
+        </div>
 
-            <!-- Card 2 -->
-            <div class="col-md-6 col-lg-5">
-                <div class="card h-100 shadow service-card">
-                    <img src="{{ url_for('static', filename='images/card2.png') }}" class="card-img-top" alt="...">
-                    <div class="card-body">
-                        <h5 class="card-title">Easy Reservation System</h5>
-                        <p class="card-text">Reserve your parking in advance and avoid last-minute hassle and
-                            uncertainty.</p>
-                        <a href="#" class="btn btn-primary">Learn More</a>
-                    </div>
+        <!-- Card 2 -->
+        <div class="col-md-6 col-lg-5">
+            <div class="card h-100 shadow">
+                <img src="{{ url_for('static', filename='images/card2.png') }}"
+                     class="card-img-top img-fluid"
+                     alt="..."
+                     style="height: 200px; object-fit: contain;">
+                <div class="card-body">
+                    <h5 class="card-title">Easy Reservation System</h5>
+                    <p class="card-text">Reserve your parking in advance and avoid last-minute hassle and uncertainty.</p>
+                    <a href="#" class="btn btn-primary">Learn More</a>
                 </div>
             </div>
+        </div>
 
-            <!-- Card 3 -->
-            <div class="col-md-6 col-lg-5">
-                <div class="card h-100 shadow service-card">
-                    <img src="{{ url_for('static', filename='images/card3.png') }}" class="card-img-top" alt="...">
-                    <div class="card-body">
-                        <h5 class="card-title">Smart Price Estimator</h5>
-                        <p class="card-text">Estimate your parking cost based on location, duration, and demand
-                            patterns.</p>
-                        <a href="#" class="btn btn-primary">Learn More</a>
-                    </div>
+        <!-- Card 3 -->
+        <div class="col-md-6 col-lg-5">
+            <div class="card h-100 shadow">
+                <img src="{{ url_for('static', filename='images/card3.png') }}"
+                     class="card-img-top img-fluid"
+                     alt="..."
+                     style="height: 200px; object-fit: contain;">
+                <div class="card-body">
+                    <h5 class="card-title">Smart Price Estimator</h5>
+                    <p class="card-text">Estimate your parking cost based on location, duration, and demand patterns.</p>
+                    <a href="#" class="btn btn-primary">Learn More</a>
                 </div>
             </div>
+        </div>
 
-            <!-- Card 4 -->
-            <div class="col-md-6 col-lg-5">
-                <div class="card h-100 shadow service-card">
-                    <img src="{{ url_for('static', filename='images/card4.png') }}" class="card-img-top" alt="...">
-                    <div class="card-body">
-                        <h5 class="card-title">Admin Dashboard</h5>
-                        <p class="card-text">Manage bookings, monitor lots, and generate reports from a centralized
-                            dashboard.</p>
-                        <a href="#" class="btn btn-primary">Learn More</a>
-                    </div>
+        <!-- Card 4 -->
+        <div class="col-md-6 col-lg-5">
+            <div class="card h-100 shadow">
+                <img src="{{ url_for('static', filename='images/card4.png') }}"
+                     class="card-img-top img-fluid"
+                     alt="..."
+                     style="height: 200px; object-fit: contain;">
+                <div class="card-body">
+                    <h5 class="card-title">Admin Dashboard</h5>
+                    <p class="card-text">Manage bookings, monitor lots, and generate reports from a centralized dashboard.</p>
+                    <a href="#" class="btn btn-primary">Learn More</a>
                 </div>
             </div>
         </div>
 
     </div>
+</div>
+
 
     <!-- About Us Section -->
     <div class="container py-5" id="about">

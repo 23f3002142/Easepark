@@ -53,18 +53,57 @@ def dashboard():
                 'total_spots': total_spots
             })
 
+        user=current_user
+        if current_user.role != 'user':
+            abort(403)
+
+        user = Users.query.get_or_404(user.id)
+        history = Reservation.query.filter_by(user_id=user.id).order_by(
+            Reservation.booking_timestamp.desc()
+        ).all()
+
+        # Summary calculations
+        total_amount_paid = sum(res.total_cost or 0 for res in history)
+        # Total duration parked (sum of all completed bookings)
+        total_duration_hours = 0
+        for res in history:
+            if res.booking_timestamp and res.releasing_timestamp:
+                duration = (res.releasing_timestamp - res.booking_timestamp).total_seconds() / 3600
+                total_duration_hours += duration
+        
+        total_duration_hours = round(total_duration_hours, 2)
+
+        total_bookings = len(history)
+        first_booking = history[-1].booking_timestamp if history else None
+        latest_booking = history[0].booking_timestamp if history else None
+
+        # Prepare booking counts by date
+        booking_counts = defaultdict(int)
+        for res in history:
+            if res.booking_timestamp:
+                date_str = res.booking_timestamp.strftime('%d %b')
+                booking_counts[date_str] += 1
+
+        # Sort by date
+        sorted_dates = sorted(booking_counts.items(), key=lambda x: datetime.strptime(x[0], '%d %b'))
+        chart_labels = [d[0] for d in sorted_dates]
+        chart_data = [d[1] for d in sorted_dates]
+
         notifications = [
             "🚗 New parking lots added recently — check nearby lots now!",
             "📄 View your booking history and release spots when done.",
             "🕒 Charges are calculated hourly — remember to release your spot in time!",
         ]
 
+
         return render_template(
-            'user_dashboard.html',
+            'user_dashboard.html.jinja',
             user=current_user,
             active_bookings=active_bookings,
             available_lots=available_lots,
-            notifications=notifications
+            notifications=notifications,
+            chart_labels=chart_labels,
+            chart_data=chart_data
         )
     
 @user_blueprint.route('/profile/view')
@@ -294,7 +333,7 @@ def user_summary():
 
 
     return render_template(
-    'user_summary.html',
+    'user_summary.html.jinja',
     user=user,
     history=history,
     total_amount_paid=total_amount_paid,

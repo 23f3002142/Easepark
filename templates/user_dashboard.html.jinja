@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bootstrap demo</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-4Q6Gf2aSP4eDXB8Miphtr37CMZZQ5oXLH2yaXMJ2w8e2ZtHTl7GptT4jmndRuHDT" crossorigin="anonymous">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body {
+    background-color: #f4f4f6;
+    color: #333333;
+  }
+
+  
+</style>
+
+</head>
+
+<body>
+
+  <!-- navbar -->
+  <nav class="navbar navbar-expand-lg bg-light border-bottom shadow-sm" id="navbar">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="{{ url_for('user.dashboard') }}">
+        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Easepark Logo"
+          style="height: 40px; width: auto;">
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
+        aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <ul class="navbar-nav mx-auto mb-2 mb-lg-0">
+          <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="{{ url_for('user.dashboard') }}">Dashboard</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('user.book_spot') }}">Book Spot</a>
+          </li>
+
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('user.booking_history') }}">My Bookings</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('user.user_summary') }}">Summary</a>
+          </li>
+
+        </ul>
+
+
+        <div class="btn-group dropstart">
+          <button type="button" class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown"
+            aria-expanded="false">
+            Profile
+          </button>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{{ url_for('user.user_profile_view') }}">View profile</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('user.user_profile_edit') }}">Edit profile</a></li>
+            <li><a class="dropdown-item" href="{{url_for('auth.logout')}}">logout</a></li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+  </nav>
+
+  {% with messages = get_flashed_messages() %}
+  {% if messages%}
+  {% for msg in messages %}
+  <div class="d-flex justify-content-center my-3">
+    <div class="border border-primary-subtle rounded p-3 bg-light text-center">
+      <p class="mb-0">{{ msg }}</p>
+    </div>
+  </div>
+  {% endfor%}
+  {% endif%}
+  {% endwith%}
+
+
+
+  <div class="container mt-5">
+
+    <div class="row mb-4">
+      <div class="col-md-8">
+        <h2>Welcome back, {{user.username}}</h2>
+        <p class="text-muted">Manage your parking quickly and easily.</p>
+      </div>
+      <div class="col-md-4 ">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Profile</h5>
+            <p class="card-text">Email: {{user.email}}</p>
+            <p class="card-text">Parking Member Since: {{user.member_since.date()}}</p>
+            <p class="card-text">Total Bookings: {{user.total_bookings}}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="d-flex flex-wrap gap-2 justify-content-center mb-4">
+      <a href="{{ url_for('user.book_spot') }}" class="btn btn-success action-btn">
+        🚗 Book your Parking Spot
+      </a>
+
+
+      <a href="{{ url_for('user.booking_history') }}" class="btn btn-info action-btn text-white">
+        🕒 View Booking History
+      </a>
+      <a href="#" class="btn btn-warning action-btn">
+        📊 Parking Report
+      </a>
+
+
+
+
+    </div>
+
+    <!-- ROW: Active Bookings + Chart -->
+    <div class="row mb-4">
+      <!-- Active Bookings -->
+      <div class="col-md-6">
+        <div class="border rounded p-3">
+          <h6 class="mb-3">🅿️ <strong>Your Active Bookings</strong></h6>
+          {% if active_bookings %}
+          {% for booking in active_bookings %}
+          <div class="border p-2 mb-2 rounded bg-light">
+            Lot {{ booking.lot_name }} - Spot {{ booking.spot_number }} |
+            {{ booking.date }} {{ booking.time_range }}
+          </div>
+          {% endfor %}
+          {% else %}
+          <p class="text-muted">No active bookings.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Parking Usage Chart -->
+      <div class="col-md-6">
+        <div class="border rounded p-3 text-center">
+          <h5 class="text-center mb-4">Booking History Timeline</h5>
+          <canvas id="bookingHistoryChart1" height="120" ></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW: Available Lots + Notifications -->
+    <div class="row mb-4">
+      <!-- Available Lots -->
+      <div class="col-md-6">
+        <div class="border rounded p-3">
+          <h6 class="mb-3">✅ <strong>Parking Lots Near you</strong></h6>
+          {% for lot in available_lots %}
+          <div>{{ lot.name }} – {{ lot.free_spots }} spots free</div>
+          {% else %}
+          <p class="text-muted">No availability data.</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Notifications -->
+      <div class="col-md-6">
+        <div class="border rounded p-3">
+          <h6 class="mb-3">🔔 <strong>Notifications</strong></h6>
+          {% for note in notifications %}
+          <div class="border-bottom py-1">{{ note }}</div>
+          {% else %}
+          <p class="text-muted">No new notifications.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+
+
+  <!-- Chart on DAshboard  -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const ctx = document.getElementById('bookingHistoryChart1').getContext('2d');
+    const bookingHistoryChart1 = new Chart(ctx, {
+      type: 'bar', // or 'line'
+      data: {
+        labels: {{ chart_labels| tojson }},
+    datasets: [{
+      label: 'Bookings',
+      data: {{ chart_data| tojson }},
+      backgroundColor: 'rgba(54, 162, 235, 0.6)',
+      borderColor: 'rgba(54, 162, 235, 1)',
+      borderWidth: 1
+            }]
+        },
+    options: {
+      responsive: true,
+        scales: {
+        y: {
+          beginAtZero: true,
+            stepSize: 1
+        }
+      }
+    }
+    });
+  </script>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-j1CDi7MgGQ12Z7Qab0qlWQ/Qqz24Gc6BM0thvEMVjHnfYGF0rmFCozFSxQBxwHKO"
+    crossorigin="anonymous"></script>
+</body>
+
+</html>
