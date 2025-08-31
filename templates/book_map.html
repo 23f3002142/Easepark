@@ -1,0 +1,57 @@
+{% include 'user_navbar.html' %}
+
+
+
+<!-- <div id="map" style="height: 500px; width: 100%;"></div> -->
+<div class="container mt-2">
+    <!-- Page Title -->
+    <div class="text-center mb-4">
+        <h2 class="fw-bold text-primary">Select a Parking Lot on Map</h2>
+        <p class="text-muted">Click on a marker to see details and reserve your spot.</p>
+    </div>
+
+    <!-- Map Section -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div id="map" style="height: 500px; width: 100%; border-radius: 10px;"></div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Leaflet.js CSS + JS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+// Initialize map centered on Bhopal 
+var map = L.map('map').setView([23.2599, 77.4126], 13);
+
+// Tile layer 
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+const reserveBaseUrl = "{{ url_for('user.reserve_spot', lot_id=0) }}";  
+
+// Fetch lots from backend
+fetch("{{ url_for('user.get_lots') }}")
+  .then(response => response.json())
+  .then(lots => {
+      lots.forEach(lot => {
+          if (lot.latitude && lot.longitude) {
+              var marker = L.marker([lot.latitude, lot.longitude]).addTo(map);
+              
+              let reserveUrl = reserveBaseUrl.replace("0", lot.id);
+              
+              marker.bindPopup(
+                  `<b>${lot.name}</b><br>
+                   ${lot.address}<br>
+                   Price: ₹${lot.price}/hr<br>
+                   Spots: ${lot.max_spots}<br>
+                   <a href="${reserveUrl}" class="btn btn-tertiary ">Reserve</a>`
+              );
+          }
+      });
+  });
+</script>

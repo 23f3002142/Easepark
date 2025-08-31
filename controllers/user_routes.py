@@ -1,5 +1,5 @@
 
-from flask import Blueprint,render_template,flash,request,url_for,abort,redirect
+from flask import Blueprint,render_template,flash,request,url_for,abort,redirect,jsonify
 from flask_login import login_required,current_user
 from models.user_model import Users,ParkingLot,ParkingSpot,Reservation,db
 from datetime import datetime , timedelta
@@ -134,6 +134,11 @@ def user_profile_edit():
             flash('Profile updated successfully!', 'success')
             return redirect(url_for('user.user_profile_view'))
     return render_template('user_profile_edit.html',user=user)
+
+@user_blueprint.route("/choose_booking")
+def choose_booking():
+    return render_template("choose_booking.html")
+
 
 @user_blueprint.route('/book', methods=['GET','POST'])
 @login_required
@@ -349,3 +354,23 @@ def user_summary():
     chart_duration_data_each=duration_values,
     chart_cost_data_each=cost_values
 )
+
+@user_blueprint.route("/api/lots")
+def get_lots():
+    lots=ParkingLot.query.filter_by(is_active=True).all()
+    lots_data=[]
+    for lot in lots:
+        lots_data.append({
+            "id": lot.id,
+            "name": lot.parking_name,
+            "address": lot.address,
+            "price": lot.price,
+            "latitude": lot.latitude,
+            "longitude": lot.longitude,
+            "max_spots": lot.max_spots
+        })
+    return jsonify(lots_data)
+
+@user_blueprint.route("/book_map")
+def book_map():
+    return render_template("book_map.html")

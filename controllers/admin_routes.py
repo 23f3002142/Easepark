@@ -29,8 +29,13 @@ def add_lot():
         address = request.form['address']
         pin_code = request.form['pin_code']
         max_spots = request.form['max_spots']
+        latitude = request.form.get("latitude")
+        longitude = request.form.get("longitude")
 
-        new_lot= ParkingLot(parking_name=name,price=price,address=address,pin_code=pin_code,max_spots=max_spots ) #type: ignore
+        lat_val = float(latitude) if latitude else None
+        long_val = float(longitude) if longitude else None
+
+        new_lot= ParkingLot(parking_name=name,price=price,address=address,pin_code=pin_code,max_spots=max_spots,latitude=lat_val,longitude=long_val ) #type: ignore
         db.session.add(new_lot)
         db.session.commit()
 

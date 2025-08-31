@@ -18,6 +18,11 @@ class Users(UserMixin, db.Model):
     pin_code = db.Column(db.String(10), nullable=True)
     member_since = db.Column(db.DateTime, default=datetime.utcnow)
     total_bookings = db.Column(db.Integer, default=0)
+
+    # for OTP
+    otp_secret = db.Column(db.String(10), nullable=True)  # store last OTP
+    otp_verified = db.Column(db.Boolean, default=False)
+
     reservations = db.relationship('Reservation', backref='user', lazy=True)
 
 class ParkingLot(UserMixin, db.Model):
@@ -28,6 +33,11 @@ class ParkingLot(UserMixin, db.Model):
     pin_code = db.Column(db.String(10), nullable=False)
     max_spots = db.Column(db.Integer, nullable=False)
     is_active = db.Column(db.Boolean, default=True)  
+
+    # for map integeration
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
+
     spots = db.relationship('ParkingSpot', backref='lot',cascade="all, delete", lazy=True)
 
 
@@ -49,3 +59,10 @@ class Reservation(UserMixin, db.Model):
     cost_per_unit_time = db.Column(db.Float, nullable=False)
     total_cost = db.Column(db.Float, nullable=True)
     status = db.Column(db.String(20), default='active')  # active, completed, cancelled
+
+    # for OTP confirmation (future scope)
+    otp_required = db.Column(db.Boolean, default=False)
+    otp_verified = db.Column(db.Boolean, default=False)
+
+    # for QR-based check-in/out (future scope)
+    qr_code = db.Column(db.String(255), nullable=True)
