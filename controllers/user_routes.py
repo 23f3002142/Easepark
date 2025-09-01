@@ -1,11 +1,18 @@
 
-from flask import Blueprint,render_template,flash,request,url_for,abort,redirect,jsonify
+from flask import Blueprint,render_template,flash,request,url_for,abort,redirect,jsonify,make_response
 from flask_login import login_required,current_user
 from models.user_model import Users,ParkingLot,ParkingSpot,Reservation,db
 from datetime import datetime , timedelta
 from collections import defaultdict
 from zoneinfo import ZoneInfo
 from sqlalchemy import or_,and_
+from flask_mail import Message
+from extensions import mail
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+import io
+
+import random
 
 user_blueprint=Blueprint('user',__name__,url_prefix='/dashboard')
 
@@ -161,6 +168,17 @@ def book_spot():
 
     return render_template('book_spot.html', lots=lots,search_query=search_query)
 
+def generate_otp():
+    return str(random.randint(100000, 999999)) 
+
+def send_otp_email(email, otp):
+    msg = Message("EasePark OTP Verification", 
+                  sender="kshitij.3001@gmail.com", 
+                  recipients=[email])
+    msg.body = f"Your OTP for EasePark booking action is: {otp}. Do not share it."
+    mail.send(msg)
+
+
 @user_blueprint.route('/book/<int:lot_id>', methods=['Get', 'POST'])
 @login_required
 def reserve_spot(lot_id):
@@ -174,18 +192,50 @@ def reserve_spot(lot_id):
         return redirect(url_for('user.book_spot'))
     
     if request.method == 'POST':
-        vehicle_number= request.form['vehicle_number']
+        otp_entered = request.form.get("otp")
+        vehicle_number = request.form.get("vehicle_number")
 
-        spot.status='O'
+        reservation = Reservation.query.filter_by(
+            user_id=current_user.id, spot_id=spot.id, status="pending"
+        ).order_by(Reservation.id.desc()).first()
 
-        current_time = datetime.now(ZoneInfo("Asia/Kolkata"))
-        reservation = Reservation( spot_id = spot.id,user_id= current_user.id,vehicle_number=vehicle_number,cost_per_unit_time = lot.price,booking_timestamp=current_time,status = 'active') #type: ignore
-        db.session.add(reservation)
-        current_user.total_bookings += 1
-        db.session.commit()
-        
-        flash(f"Spot number {spot.spot_number} reserved successfully!", "success")
-        return redirect(url_for('user.dashboard'))
+        if reservation and otp_entered:
+            if reservation.otp_secret == otp_entered:
+                # ✅ OTP verified → confirm booking
+                reservation.status = "active"
+                reservation.otp_verified = True
+                spot.status = 'O'  # Occupied
+                current_user.total_bookings += 1
+                db.session.commit()
+                flash(f"Spot number {spot.spot_number} reserved successfully!", "success")
+                return redirect(url_for('user.dashboard'))
+            else:
+                flash("Invalid OTP, please try again.", "danger")
+                return render_template('verify_otp.html', lot=lot, spot=spot)
+
+        else:
+            # First time booking request → generate OTP
+            otp = generate_otp()
+            current_time = datetime.now(ZoneInfo("Asia/Kolkata"))
+
+            reservation = Reservation(
+                spot_id=spot.id, #type:ignore
+                user_id=current_user.id,#type:ignore
+                vehicle_number=vehicle_number,#type:ignore
+                cost_per_unit_time=lot.price,#type:ignore
+                booking_timestamp=current_time,#type:ignore
+                status="pending",   #type:ignore
+                otp_required=True,#type:ignore
+                otp_verified=False,#type:ignore
+                otp_secret=otp#type:ignore
+            )
+
+            db.session.add(reservation)
+            db.session.commit()
+
+            send_otp_email(current_user.email, otp)
+            flash("OTP sent to your registered email. Please verify.", "info")
+            return render_template('verify_otp.html', lot=lot, spot=spot)
     return render_template('reserve_spot.html', lot=lot,spot=spot,user=current_user)
 
 
@@ -198,12 +248,74 @@ def booking_history():
 
     return render_template('booking_history.html', history=history , user=user)
 
+
+
+def generate_receipt_pdf(reservation, lot, spot):
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(200, 750, "EasePark Parking Receipt")
+
+    c.setFont("Helvetica", 12)
+    c.drawString(50, 700, f"User: {current_user.full_name or current_user.username}")
+    c.drawString(50, 680, f"Parking Lot: {lot.parking_name}")
+    c.drawString(50, 660, f"Spot Number: {spot.spot_number}")
+    c.drawString(50, 640, f"Vehicle Number: {reservation.vehicle_number}")
+    c.drawString(50, 620, f"Booking Time: {reservation.booking_timestamp}")
+    c.drawString(50, 600, f"Release Time: {reservation.releasing_timestamp or 'N/A'}")
+    c.drawString(50, 580, f"Total Cost: ₹{reservation.total_cost or 0}")
+
+    c.drawString(50, 540, "Thank you for using EasePark!")
+    c.showPage()
+    c.save()
+
+    buffer.seek(0)
+    return buffer
+
+def send_receipt_email(user, reservation, lot, spot):
+    pdf_buffer = generate_receipt_pdf(reservation, lot, spot)
+
+    msg = Message(
+        subject="EasePark Booking Receipt",
+        sender="your_email@gmail.com",
+        recipients=[user.email]
+    )
+    msg.body = f"""
+Hello {user.username},
+
+Here is your receipt for your recent booking with EasePark:
+
+Lot: {lot.parking_name}
+Spot: {spot.spot_number}
+Total Cost: ₹{reservation.total_cost}
+
+Thank you for choosing EasePark!
+"""
+
+    # attached PDF
+    msg.attach(
+        f"receipt_{reservation.id}.pdf",
+        "application/pdf",
+        pdf_buffer.read()
+    )
+
+    mail.send(msg)
+
+
+
 @user_blueprint.route('/release/<int:reservation_id>' , methods=['GET','POST'])
 @login_required
 def release_spot(reservation_id):
-    reservation = Reservation.query.filter_by(id=reservation_id,user_id=current_user.id,status='active').first()
+    reservation = Reservation.query.filter(
+        Reservation.id == reservation_id,
+        Reservation.user_id == current_user.id,
+        or_(
+            Reservation.status == 'active',
+            Reservation.status == 'pending_release'
+        )
+    ).first()    
     if reservation is None:
-        abort(404)
+            abort(404)
     
     spot=ParkingSpot.query.filter_by(id=reservation.spot_id).first()
     if spot is None:
@@ -224,23 +336,91 @@ def release_spot(reservation_id):
         estimated_cost = None
 
     if request.method == 'POST':
-        release_time= datetime.now(ZoneInfo("Asia/Kolkata"))
-        booking_time = reservation.booking_timestamp.replace(tzinfo=ZoneInfo("Asia/Kolkata"))
-        duration= (release_time - booking_time).total_seconds() / 3600
-        duration= max(1,int(duration))
+        otp_entered = request.form.get("otp")
 
-        total_cost = duration * reservation.cost_per_unit_time
+        if otp_entered:  # OTP verification step
+            if reservation.otp_secret == otp_entered:
+                release_time = datetime.now(ZoneInfo("Asia/Kolkata"))
+                booking_time = reservation.booking_timestamp.replace(tzinfo=ZoneInfo("Asia/Kolkata"))
+                duration = (release_time - booking_time).total_seconds() / 3600
+                duration = max(1, int(duration))
 
-        reservation.releasing_timestamp = release_time
-        reservation.total_cost = total_cost
-        reservation.status= 'Completed'
+                total_cost = duration * reservation.cost_per_unit_time
 
-        spot.status = 'A'
+                reservation.releasing_timestamp = release_time
+                reservation.total_cost = total_cost
+                reservation.status = 'completed'
+                reservation.otp_verified = True
+
+                spot.status = 'A'
+                db.session.commit()
+
+                # after db.session.commit()
+                send_receipt_email(current_user, reservation, lot, spot)
+                flash("Spot released successfully. Receipt has been emailed to you.", "success")
+                return redirect(url_for('user.dashboard'))
+            else:
+                flash("Invalid OTP, please try again.", "danger")
+                return render_template("verify_otp.html", lot=lot, spot=spot)
+
+        # Step 1: Generate and send OTP for release
+        otp = str(random.randint(100000, 999999))
+        reservation.otp_secret = otp
+        reservation.otp_required = True
+        reservation.status = "pending_release"
         db.session.commit()
-        
-        flash(f"Spot released successfully. Total cost: ₹{total_cost}", "success")
-        return redirect(url_for('user.dashboard'))
+
+        send_otp_email(current_user.email, otp)
+        flash("OTP sent to your registered email. Please verify to release.", "info")
+        return render_template("verify_otp.html", lot=lot, spot=spot)
     return render_template('release_spot.html', reservation=reservation, spot=spot, lot=lot,datetime=datetime,timedelta=timedelta,estimated_cost=estimated_cost)
+
+
+
+
+@user_blueprint.route("/receipt/<int:reservation_id>")
+@login_required
+def download_receipt(reservation_id):
+    reservation = Reservation.query.filter_by(
+        id=reservation_id, user_id=current_user.id
+    ).first()
+
+    if not reservation:
+        abort(404)
+
+    spot = ParkingSpot.query.get(reservation.spot_id)
+    if spot is None:
+        abort(404)
+
+    lot = spot.lot
+
+    # Generate PDF in memory
+    pdf_buffer = io.BytesIO()
+    p = canvas.Canvas(pdf_buffer, pagesize=letter)
+
+    p.setFont("Helvetica-Bold", 16)
+    p.drawString(200, 750, "EasePark Parking Receipt")
+
+    p.setFont("Helvetica", 12)
+    p.drawString(50, 700, f"User: {current_user.full_name or current_user.username}")
+    p.drawString(50, 680, f"Parking Lot: {lot.parking_name}")
+    p.drawString(50, 660, f"Spot Number: {spot.spot_number}")
+    p.drawString(50, 640, f"Vehicle Number: {reservation.vehicle_number}")
+    p.drawString(50, 620, f"Booking Time: {reservation.booking_timestamp}")
+    p.drawString(50, 600, f"Release Time: {reservation.releasing_timestamp or 'N/A'}")
+    p.drawString(50, 580, f"Total Cost: ₹{reservation.total_cost or 0}")
+
+    p.showPage()
+    p.save()
+    pdf_buffer.seek(0)
+
+    # Return response as downloadable PDF
+    response = make_response(pdf_buffer.read())
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'attachment; filename=receipt_{reservation.id}.pdf'
+
+    return response
+
 
 
 

@@ -15,6 +15,7 @@
           <th>To</th>
           <th>Cost</th>
           <th>Action</th>
+          <th>Receipt</th>
         </tr>
       </thead>
       <tbody>
@@ -33,11 +34,21 @@
           </td>
           <td>₹{{ res.total_cost or '—' }}</td>
           <td>
-            {% if res.status == 'active' %}
+            {% if res.status == 'active' or res.status == 'pending_release' %}
               <a href="{{ url_for('user.release_spot', reservation_id=res.id) }}"
                  class="btn btn-danger btn-sm">Release</a>
             {% else %}
               <span class="text-muted">Parked Out</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if res.status == 'Completed' %}
+              <a href="{{ url_for('user.download_receipt', reservation_id=res.id) }}" 
+                 class="btn btn-sm btn-primary">
+                 Download
+              </a>
+            {% else %}
+              <span class="text-muted">—</span>
             {% endif %}
           </td>
         </tr>

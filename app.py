@@ -1,13 +1,14 @@
 from flask import Flask,render_template
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_login import LoginManager 
+from extensions import login_manager, mail
 from models import db
 from models.user_model import Users, ParkingLot , ParkingSpot,Reservation
 from controllers.admin_routes import admin_blueprint
 from controllers.user_routes import user_blueprint
 from controllers.auth_routes import auth
 import os
+from flask_mail import Mail
 #http://127.0.0.1:5000
 
 app=Flask(__name__)
@@ -20,13 +21,22 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 
-login_manager = LoginManager()
+
 login_manager.init_app(app)
 login_manager.login_view = 'auth.login'# type: ignore
 
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(Users, int(user_id))
+
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = "kshitij.3001@gmail.com"      
+app.config['MAIL_PASSWORD'] = "cbff latm dyho dhtu"   
+
+mail = Mail(app)  # initialize Mail with app
+mail.init_app(app)
 
 
 app.register_blueprint(auth)

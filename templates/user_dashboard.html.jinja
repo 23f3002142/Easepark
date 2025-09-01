@@ -103,7 +103,7 @@
 
 
     <div class="d-flex flex-wrap gap-2 justify-content-center mb-4">
-      <a href="{{ url_for('user.book_spot') }}" class="btn btn-success action-btn">
+      <a href="{{ url_for('user.choose_booking') }}" class="btn btn-success action-btn">
         🚗 Book your Parking Spot
       </a>
 
@@ -111,8 +111,8 @@
       <a href="{{ url_for('user.booking_history') }}" class="btn btn-info action-btn text-white">
         🕒 View Booking History
       </a>
-      <a href="#" class="btn btn-warning action-btn">
-        📊 Parking Report
+      <a href="{{ url_for('user.user_summary') }}" class="btn btn-warning action-btn">
+        📊 User Parking Report
       </a>
 
 

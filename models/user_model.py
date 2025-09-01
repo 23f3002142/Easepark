@@ -19,9 +19,6 @@ class Users(UserMixin, db.Model):
     member_since = db.Column(db.DateTime, default=datetime.utcnow)
     total_bookings = db.Column(db.Integer, default=0)
 
-    # for OTP
-    otp_secret = db.Column(db.String(10), nullable=True)  # store last OTP
-    otp_verified = db.Column(db.Boolean, default=False)
 
     reservations = db.relationship('Reservation', backref='user', lazy=True)
 
@@ -63,6 +60,8 @@ class Reservation(UserMixin, db.Model):
     # for OTP confirmation (future scope)
     otp_required = db.Column(db.Boolean, default=False)
     otp_verified = db.Column(db.Boolean, default=False)
+    otp_secret = db.Column(db.String(10), nullable=True)
+
 
     # for QR-based check-in/out (future scope)
     qr_code = db.Column(db.String(255), nullable=True)
