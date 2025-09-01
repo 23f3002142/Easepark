@@ -65,6 +65,10 @@ def create_admin_user():
 def home():
     return render_template('home.html')
 
+with app.app_context():
+    db.create_all()
+
+
 if __name__=='__main__':
     with app.app_context():
         db.create_all()
