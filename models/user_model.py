@@ -10,11 +10,11 @@ class Users(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username= db.Column(db.String(100) , unique=True , nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=True)
-    password= db.Column(db.String(100) , nullable=False)
+    password= db.Column(db.String(255) , nullable=False)
     role= db.Column(db.String(15), nullable=False)
     full_name = db.Column(db.String(100), nullable=True)
-    phone_number = db.Column(db.String(15), unique=True, nullable=True)
-    address = db.Column(db.String(255), nullable=True)
+    phone_number = db.Column(db.String(20), unique=True, nullable=True)
+    address = db.Column(db.Text, nullable=True)
     pin_code = db.Column(db.String(10), nullable=True)
     member_since = db.Column(db.DateTime, default=datetime.utcnow)
     total_bookings = db.Column(db.Integer, default=0)
@@ -41,7 +41,7 @@ class ParkingLot(UserMixin, db.Model):
 class ParkingSpot(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     lot_id = db.Column(db.Integer, db.ForeignKey('parking_lot.id'), nullable=False)
-    spot_number = db.Column(db.String(10), nullable=True) # spot number that can be given to human for finding the spot
+    spot_number = db.Column(db.String(20), nullable=True) # spot number that can be given to human for finding the spot
     status = db.Column(db.String(1), default='A') # A can be considered as 'Available' at first.
     is_active = db.Column(db.Boolean, default=True) # this show wether the spot is accessible or disabled by the admin
     reservations = db.relationship('Reservation', backref='spot', lazy=True)
@@ -60,8 +60,8 @@ class Reservation(UserMixin, db.Model):
     # for OTP confirmation (future scope)
     otp_required = db.Column(db.Boolean, default=False)
     otp_verified = db.Column(db.Boolean, default=False)
-    otp_secret = db.Column(db.String(10), nullable=True)
+    otp_secret = db.Column(db.String(50), nullable=True)
 
 
     # for QR-based check-in/out (future scope)
-    qr_code = db.Column(db.String(255), nullable=True)
+    qr_code = db.Column(db.Text, nullable=True)
