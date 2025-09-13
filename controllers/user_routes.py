@@ -256,7 +256,8 @@ def reserve_spot(lot_id):
 def booking_history():
     history = Reservation.query.filter_by(user_id=current_user.id).order_by(Reservation.booking_timestamp.desc()).all()
     user=current_user
-    
+    for res in history:
+        res.booking_timestamp_ist = res.booking_timestamp.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Kolkata"))
 
     return render_template('booking_history.html', history=history , user=user)
 
@@ -447,7 +448,8 @@ def user_summary():
     history = Reservation.query.filter_by(user_id=user.id).order_by(
         Reservation.booking_timestamp.desc()
     ).all()
-
+    for res in history:
+        res.booking_timestamp_ist = res.booking_timestamp.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Kolkata"))
      # Summary calculations
     total_amount_paid = sum(res.total_cost or 0 for res in history)
     
