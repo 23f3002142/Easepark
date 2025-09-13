@@ -179,18 +179,18 @@ def send_otp_email(email, otp):
     mail.send(msg)
 
 
-@user_blueprint.route('/book/<int:lot_id>', methods=['Get', 'POST'])
+@user_blueprint.route('/book/<int:lot_id>', methods=['GET', 'POST'])
 @login_required
 def reserve_spot(lot_id):
     lot = ParkingLot.query.filter_by(id=lot_id).first()
     if lot is None:
         abort(404)
 
-    spot = ParkingSpot.query.filter_by(lot_id=lot_id , status = 'A').first()
+    spot = ParkingSpot.query.filter_by(lot_id=lot_id, status='A').first()
 
     if not spot:
         return redirect(url_for('user.book_spot'))
-    
+
     if request.method == 'POST':
         otp_entered = request.form.get("otp")
         vehicle_number = request.form.get("vehicle_number")
@@ -214,20 +214,30 @@ def reserve_spot(lot_id):
                 return render_template('verify_otp.html', lot=lot, spot=spot)
 
         else:
+            # 🚨 Check if this vehicle number is already in an active reservation
+            active_reservation = Reservation.query.filter_by(
+                vehicle_number=vehicle_number,
+                status="active"
+            ).first()
+
+            if active_reservation:
+                flash("This vehicle already has an active reservation. Please use another vehicle.", "danger")
+                return redirect(url_for('user.choose_booking'))
+
             # First time booking request → generate OTP
             otp = generate_otp()
             current_time = datetime.now(ZoneInfo("Asia/Kolkata"))
 
             reservation = Reservation(
-                spot_id=spot.id, #type:ignore
-                user_id=current_user.id,#type:ignore
-                vehicle_number=vehicle_number,#type:ignore
-                cost_per_unit_time=lot.price,#type:ignore
-                booking_timestamp=current_time,#type:ignore
-                status="pending",   #type:ignore
-                otp_required=True,#type:ignore
-                otp_verified=False,#type:ignore
-                otp_secret=otp#type:ignore
+                spot_id=spot.id,  # type: ignore
+                user_id=current_user.id,  # type: ignore
+                vehicle_number=vehicle_number,  # type: ignore
+                cost_per_unit_time=lot.price,  # type: ignore
+                booking_timestamp=current_time,  # type: ignore
+                status="pending",   # type: ignore
+                otp_required=True,  # type: ignore
+                otp_verified=False,  # type: ignore
+                otp_secret=otp  # type: ignore
             )
 
             db.session.add(reservation)
@@ -236,7 +246,9 @@ def reserve_spot(lot_id):
             send_otp_email(current_user.email, otp)
             flash("OTP sent to your registered email. Please verify.", "info")
             return render_template('verify_otp.html', lot=lot, spot=spot)
-    return render_template('reserve_spot.html', lot=lot,spot=spot,user=current_user)
+
+    return render_template('reserve_spot.html', lot=lot, spot=spot, user=current_user)
+
 
 
 @user_blueprint.route('/history')

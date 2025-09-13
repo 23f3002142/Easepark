@@ -16,6 +16,18 @@
   <!-- include your navbar -->
   {% include 'user_navbar.html' %}
 
+  {% with messages = get_flashed_messages() %}
+  {% if messages%}
+  {% for msg in messages %}
+  <div class="d-flex justify-content-center my-3">
+    <div class="border border-primary-subtle rounded p-3 bg-light text-center">
+      <p class="mb-0">{{ msg }}</p>
+    </div>
+  </div>
+  {% endfor%}
+  {% endif%}
+  {% endwith%}
+
   <!-- main content -->
   <div class="container my-5">
     <div class="text-center mb-5">

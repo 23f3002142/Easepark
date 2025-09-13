@@ -42,7 +42,7 @@
             {% endif %}
           </td>
           <td>
-            {% if res.status == 'Completed' %}
+            {% if res.status == 'completed' %}
               <a href="{{ url_for('user.download_receipt', reservation_id=res.id) }}" 
                  class="btn btn-sm btn-primary">
                  Download

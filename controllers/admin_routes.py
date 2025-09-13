@@ -94,6 +94,8 @@ def edit_lot(lot_id):
         lot.price = request.form['price']
         lot.address = request.form['address']
         lot.pin_code = request.form['pin_code']
+        lot.latitude = request.form['latitude']  # <-- NEW
+        lot.longitude = request.form['longitude']
         new_max_spots =int(request.form['max_spots'])
         current_spots_count = len(lot.spots)
 

@@ -1,23 +1,50 @@
-{% include 'user_navbar.html' %}
 
 
+<style>
+  body, html {
+      height: 100%;
+      margin: 0;
+  }
 
-<!-- <div id="map" style="height: 500px; width: 100%;"></div> -->
-<div class="container mt-2">
-    <!-- Page Title -->
-    <div class="text-center mb-4">
-        <h2 class="fw-bold text-primary">Select a Parking Lot on Map</h2>
-        <p class="text-muted">Click on a marker to see details and reserve your spot.</p>
-    </div>
+  #map {
+      height: 100vh; /* Full viewport height */
+      width: 100%;
+  }
 
-    <!-- Map Section -->
-    <div class="card shadow-sm border-0">
-        <div class="card-body p-0">
-            <div id="map" style="height: 500px; width: 100%; border-radius: 10px;"></div>
-        </div>
-    </div>
+  /* Title overlay box */
+  .map-title-box {
+      position: absolute;
+      top: 20px; /* leave space for navbar */
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.8); /* translucent white */
+      padding: 15px 25px;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      z-index: 1000; /* keep above map */
+  }
+
+  .map-title-box h2 {
+      margin: 0;
+      font-weight: bold;
+      color: #0d6efd;
+  }
+
+  .map-title-box p {
+      margin: 5px 0 0;
+      color: #555;
+  }
+</style>
+
+<!-- Map title overlay -->
+<div class="map-title-box">
+    <h2>Select a Parking Lot on Map</h2>
+    <p>Click on a marker to see details and reserve your spot.</p>
 </div>
 
+<!-- Fullscreen Map -->
+<div id="map"></div>
 
 <!-- Leaflet.js CSS + JS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
@@ -49,7 +76,7 @@ fetch("{{ url_for('user.get_lots') }}")
                    ${lot.address}<br>
                    Price: ₹${lot.price}/hr<br>
                    Spots: ${lot.max_spots}<br>
-                   <a href="${reserveUrl}" class="btn btn-tertiary ">Reserve</a>`
+                   <a href="${reserveUrl}" class="btn btn-sm btn-primary mt-2">Reserve</a>`
               );
           }
       });

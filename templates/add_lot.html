@@ -110,8 +110,8 @@
 
             // Add new marker
             marker = L.marker([lat, lng]).addTo(map)
-                .bindPopup("Selected Location:<br>Lat: " + lat + "<br>Lng: " + lng)
                 .openPopup();
+                
 
             // Update hidden form inputs
             document.getElementById("latitude").value = lat;
