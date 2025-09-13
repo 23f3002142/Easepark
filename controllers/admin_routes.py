@@ -1,7 +1,7 @@
 
 from flask import Blueprint,render_template,redirect,url_for,flash , request , abort
 from flask_login import login_required,current_user
-from sqlalchemy import func ,or_
+from sqlalchemy import func ,or_,to_char
 from models.user_model import Users,ParkingLot,ParkingSpot,Reservation,db
 from datetime import datetime , timedelta 
 from zoneinfo import ZoneInfo
@@ -263,14 +263,14 @@ def admin_summary():
     one_year_ago = today - timedelta(days=365)
 
     monthly_data = db.session.query(
-                                    func.strftime('%Y-%m', Reservation.booking_timestamp),  # Year-Month format
+                                    func.to_char('%Y-%m', Reservation.booking_timestamp),  # Year-Month format
                                     func.count(Reservation.id)
                                 ).filter(
                                     Reservation.booking_timestamp >= one_year_ago
                                 ).group_by(
-                                    func.strftime('%Y-%m', Reservation.booking_timestamp)
+                                    func.to_char('%Y-%m', Reservation.booking_timestamp)
                                 ).order_by(
-                                    func.strftime('%Y-%m', Reservation.booking_timestamp)
+                                    func.to_char('%Y-%m', Reservation.booking_timestamp)
                                 ).all()
 
     months = []
@@ -291,12 +291,12 @@ def admin_summary():
     
     registration_stats = (
     db.session.query(
-        func.strftime('%Y-%m', Users.member_since).label('month'),
+        func.to_char('%Y-%m', Users.member_since).label('month'),
         func.count(Users.id).label('Users_count')
     )
     .filter(Users.member_since >= one_year_ago)
-    .group_by(func.strftime('%Y-%m', Users.member_since))
-    .order_by(func.strftime('%Y-%m', Users.member_since))
+    .group_by(func.to_char('%Y-%m', Users.member_since))
+    .order_by(func.to_char('%Y-%m', Users.member_since))
     .all()
     )
 
@@ -326,19 +326,25 @@ def admin_summary():
     avg_parking_time = (
         db.session.query(
             ParkingLot.parking_name,
-            func.avg(func.julianday(Reservation.releasing_timestamp) - func.julianday(Reservation.booking_timestamp)).label('avg_duration_days')
+            func.avg(
+                func.extract('epoch', Reservation.releasing_timestamp - Reservation.booking_timestamp) / 86400.0
+            ).label('avg_duration_days')
         )
         .join(ParkingSpot, ParkingSpot.lot_id == ParkingLot.id)
         .join(Reservation, Reservation.spot_id == ParkingSpot.id)
-        .filter(Reservation.releasing_timestamp.isnot(None))  # Only completed reservations
+        .filter(Reservation.releasing_timestamp.isnot(None))
         .group_by(ParkingLot.id)
-        .order_by(func.avg(func.julianday(Reservation.releasing_timestamp) - func.julianday(Reservation.booking_timestamp)).desc())
-        .limit(10)  # Top 10 lots by usage
+        .order_by(func.avg(
+            func.extract('epoch', Reservation.releasing_timestamp - Reservation.booking_timestamp) / 86400.0
+        ).desc())
+        .limit(10)
         .all()
     )
 
+
     labels2 = [row.parking_name for row in avg_parking_time]
-    data2 = [round(row.avg_duration_days * 24, 2) for row in avg_parking_time]
+    data2 = [round(row.avg_duration_days * 24, 2) for row in avg_parking_time]  # hours
+
 
     return render_template('admin_summary.html.jinja',total_spots=total_spots,occupied_spots=occupied_spots,available_spots=available_spots,
                            months=months,

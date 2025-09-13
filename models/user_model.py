@@ -5,7 +5,6 @@ from datetime import datetime
 from models import db
 
 
-
 class Users(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username= db.Column(db.String(100) , unique=True , nullable=False)

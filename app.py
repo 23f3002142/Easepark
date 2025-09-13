@@ -1,5 +1,6 @@
 from flask import Flask,render_template
 from flask_sqlalchemy import SQLAlchemy
+
 from werkzeug.security import generate_password_hash, check_password_hash
 from extensions import login_manager, mail
 from models import db
@@ -41,7 +42,6 @@ app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
 
 mail = Mail(app)  # initialize Mail with app
 mail.init_app(app)
-
 
 app.register_blueprint(auth)
 app.register_blueprint(user_blueprint)
