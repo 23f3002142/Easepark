@@ -84,10 +84,10 @@
                         <td>{{ res.spot.spot_number }}</td>
                         <td>{{ res.spot.lot.parking_name }}</td>
                         <td>{{ res.vehicle_number or 'N/A' }}</td>
-                        <td>{{ res.booking_timestamp.strftime('%d %b %Y, %I:%M %p') }}</td>
+                        <td>{{ res.booking_timestamp_ist.strftime('%d %b %Y, %I:%M %p') }}</td>
                         <td>
-                            {% if res.releasing_timestamp %}
-                            {{ res.releasing_timestamp.strftime('%d %b %Y, %I:%M %p') }}
+                            {% if res.releasing_timestamp_ist %}
+                            {{ res.releasing_timestamp_ist.strftime('%d %b %Y, %I:%M %p') }}
                             {% else %}
                             —
                             {% endif %}

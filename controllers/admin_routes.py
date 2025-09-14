@@ -220,6 +220,12 @@ def user_booking_history(user_id):
     history = Reservation.query.filter_by(user_id=user.id).order_by(
         Reservation.booking_timestamp.desc()
     ).all()
+    for res in history:
+        res.booking_timestamp_ist = res.booking_timestamp.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Kolkata"))
+        if res.releasing_timestamp:
+            res.releasing_timestamp_ist = res.releasing_timestamp.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Kolkata"))
+        else:
+            res.releasing_timestamp_ist = None
 
      # Summary calculations
     total_amount_paid = sum(res.total_cost or 0 for res in history)
@@ -227,15 +233,15 @@ def user_booking_history(user_id):
     # Total duration parked (sum of all completed bookings)
     total_duration_hours = 0
     for res in history:
-        if res.booking_timestamp and res.releasing_timestamp:
-            duration = (res.releasing_timestamp - res.booking_timestamp).total_seconds() / 3600
+        if res.booking_timestamp_ist and res.releasing_timestamp_ist:
+            duration = (res.releasing_timestamp_ist - res.booking_timestamp_ist).total_seconds() / 3600
             total_duration_hours += duration
     
     total_duration_hours = round(total_duration_hours, 2)
 
     total_bookings = len(history)
-    first_booking = history[-1].booking_timestamp if history else None
-    latest_booking = history[0].booking_timestamp if history else None
+    first_booking = history[-1].booking_timestamp_ist if history else None
+    latest_booking = history[0].booking_timestamp_ist if history else None
 
     return render_template(
         'admin_user_history.html',
@@ -250,61 +256,59 @@ def user_booking_history(user_id):
 
 
 
+
+
 @admin_blueprint.route('/summary')
 @login_required
 def admin_summary():
-    # first chart for avaialabe to occupany ratio 
-    total_spots=ParkingSpot.query.count()
-    occupied_spots=ParkingSpot.query.filter(ParkingSpot.status!='A').count()
-    available_spots=total_spots-occupied_spots
+    # first chart for available to occupancy ratio
+    total_spots = ParkingSpot.query.count()
+    occupied_spots = ParkingSpot.query.filter(ParkingSpot.status != 'A').count()
+    available_spots = total_spots - occupied_spots
 
-    #second chart for weekly trend 
+    # second chart for monthly booking trend (past year)
     today = datetime.utcnow().date()
     one_year_ago = today - timedelta(days=365)
 
     monthly_data = db.session.query(
-                                    func.to_char('%Y-%m', Reservation.booking_timestamp),  # Year-Month format
-                                    func.count(Reservation.id)
-                                ).filter(
-                                    Reservation.booking_timestamp >= one_year_ago
-                                ).group_by(
-                                    func.to_char('%Y-%m', Reservation.booking_timestamp)
-                                ).order_by(
-                                    func.to_char('%Y-%m', Reservation.booking_timestamp)
-                                ).all()
+        func.to_char(Reservation.booking_timestamp, 'YYYY-MM').label('month'),  # Corrected
+        func.count(Reservation.id)
+    ).filter(
+        Reservation.booking_timestamp >= one_year_ago
+    ).group_by(
+        func.to_char(Reservation.booking_timestamp, 'YYYY-MM')
+    ).order_by(
+        func.to_char(Reservation.booking_timestamp, 'YYYY-MM')
+    ).all()
 
     months = []
     bookings_per_month = []
 
     for month_str, count in monthly_data:
-        # convert "YYYY-MM" → "MonthName YYYY"
         month_dt = datetime.strptime(month_str, "%Y-%m")
         month_label = month_dt.strftime("%b %Y")  # Example: Jan 2025
         months.append(month_label)
         bookings_per_month.append(count)
 
-
-    #third chart 
-    # Get number of new users registered per month (past 12 months)
+    # third chart: new user registrations per month (past 12 months)
     today = datetime.today()
     one_year_ago = today.replace(year=today.year - 1)
-    
+
     registration_stats = (
-    db.session.query(
-        func.to_char('%Y-%m', Users.member_since).label('month'),
-        func.count(Users.id).label('Users_count')
-    )
-    .filter(Users.member_since >= one_year_ago)
-    .group_by(func.to_char('%Y-%m', Users.member_since))
-    .order_by(func.to_char('%Y-%m', Users.member_since))
-    .all()
+        db.session.query(
+            func.to_char(Users.member_since, 'YYYY-MM').label('month'),
+            func.count(Users.id).label('Users_count')
+        )
+        .filter(Users.member_since >= one_year_ago)
+        .group_by(func.to_char(Users.member_since, 'YYYY-MM'))
+        .order_by(func.to_char(Users.member_since, 'YYYY-MM'))
+        .all()
     )
 
-    # Prepare data for chart
     labels = [row.month for row in registration_stats]
     data = [row.Users_count for row in registration_stats]
 
-    #chart 4
+    # fourth chart: top 10 most used parking lots
     top_lots = (
         db.session.query(
             ParkingLot.parking_name,
@@ -314,44 +318,50 @@ def admin_summary():
         .join(Reservation, Reservation.spot_id == ParkingSpot.id)
         .group_by(ParkingLot.id)
         .order_by(func.count(Reservation.id).desc())
-        .limit(10)  # Top 10 lots
+        .limit(10)
         .all()
     )
 
-    # Prepare data for chart
     labels1 = [row.parking_name for row in top_lots]
     data1 = [row.usage_count for row in top_lots]
 
-    #chart 5 
+    # fifth chart: average parking time (hours) per lot
     avg_parking_time = (
         db.session.query(
             ParkingLot.parking_name,
             func.avg(
-                func.extract('epoch', Reservation.releasing_timestamp - Reservation.booking_timestamp) / 86400.0
-            ).label('avg_duration_days')
+                func.extract('epoch', Reservation.releasing_timestamp - Reservation.booking_timestamp) / 3600.0
+            ).label('avg_duration_hours')
         )
         .join(ParkingSpot, ParkingSpot.lot_id == ParkingLot.id)
         .join(Reservation, Reservation.spot_id == ParkingSpot.id)
         .filter(Reservation.releasing_timestamp.isnot(None))
         .group_by(ParkingLot.id)
         .order_by(func.avg(
-            func.extract('epoch', Reservation.releasing_timestamp - Reservation.booking_timestamp) / 86400.0
+            func.extract('epoch', Reservation.releasing_timestamp - Reservation.booking_timestamp) / 3600.0
         ).desc())
         .limit(10)
         .all()
     )
 
-
     labels2 = [row.parking_name for row in avg_parking_time]
-    data2 = [round(row.avg_duration_days * 24, 2) for row in avg_parking_time]  # hours
+    data2 = [round(row.avg_duration_hours, 2) for row in avg_parking_time]
 
+    return render_template(
+        'admin_summary.html.jinja',
+        total_spots=total_spots,
+        occupied_spots=occupied_spots,
+        available_spots=available_spots,
+        months=months,
+        bookings_per_month=bookings_per_month,
+        labels=labels,
+        data=data,
+        labels1=labels1,
+        data1=data1,
+        labels2=labels2,
+        data2=data2
+    )
 
-    return render_template('admin_summary.html.jinja',total_spots=total_spots,occupied_spots=occupied_spots,available_spots=available_spots,
-                           months=months,
-                           bookings_per_month=bookings_per_month,
-                           labels=labels, data=data,
-                           labels1=labels1, data1=data1,
-                           labels2=labels2, data2=data2)
 
 
 @admin_blueprint.route('admin/summary', methods=['GET','POST'])

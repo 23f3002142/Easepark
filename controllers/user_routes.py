@@ -258,7 +258,10 @@ def booking_history():
     user=current_user
     for res in history:
         res.booking_timestamp_ist = res.booking_timestamp.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Kolkata"))
-
+        if res.releasing_timestamp:
+            res.releasing_timestamp_ist = res.releasing_timestamp.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Kolkata"))
+        else:
+            res.releasing_timestamp_ist = None
     return render_template('booking_history.html', history=history , user=user)
 
 
@@ -440,7 +443,7 @@ def download_receipt(reservation_id):
 @user_blueprint.route('/user-summary')
 @login_required
 def user_summary():
-    user=current_user
+    user = current_user
     if current_user.role != 'user':
         abort(403)
 
@@ -448,33 +451,39 @@ def user_summary():
     history = Reservation.query.filter_by(user_id=user.id).order_by(
         Reservation.booking_timestamp.desc()
     ).all()
+
+    # Convert timestamps to IST for each reservation
     for res in history:
-        res.booking_timestamp_ist = res.booking_timestamp.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Kolkata"))
-     # Summary calculations
+        if res.booking_timestamp:
+            res.booking_timestamp_ist = res.booking_timestamp.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Kolkata"))
+        else:
+            res.booking_timestamp_ist = None
+
+        if res.releasing_timestamp:
+            res.releasing_timestamp_ist = res.releasing_timestamp.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Kolkata"))
+        else:
+            res.releasing_timestamp_ist = None
+
+    # Summary calculations
     total_amount_paid = sum(res.total_cost or 0 for res in history)
-    
 
-
-
-    # for chart-1 
     # Total duration parked (sum of all completed bookings)
     total_duration_hours = 0
     for res in history:
-        if res.booking_timestamp and res.releasing_timestamp:
-            duration = (res.releasing_timestamp - res.booking_timestamp).total_seconds() / 3600
+        if res.booking_timestamp_ist and res.releasing_timestamp_ist:
+            duration = (res.releasing_timestamp_ist - res.booking_timestamp_ist).total_seconds() / 3600
             total_duration_hours += duration
-    
     total_duration_hours = round(total_duration_hours, 2)
 
     total_bookings = len(history)
-    first_booking = history[-1].booking_timestamp if history else None
-    latest_booking = history[0].booking_timestamp if history else None
+    first_booking = history[-1].booking_timestamp_ist if history else None
+    latest_booking = history[0].booking_timestamp_ist if history else None
 
     # Prepare booking counts by date
     booking_counts = defaultdict(int)
     for res in history:
-        if res.booking_timestamp:
-            date_str = res.booking_timestamp.strftime('%d %b')
+        if res.booking_timestamp_ist:
+            date_str = res.booking_timestamp_ist.strftime('%d %b')
             booking_counts[date_str] += 1
 
     # Sort by date
@@ -482,8 +491,7 @@ def user_summary():
     chart_labels = [d[0] for d in sorted_dates]
     chart_data = [d[1] for d in sorted_dates]
 
-    #for chart 2
-
+    # Duration buckets
     duration_buckets = {
         '<3 hrs': 0,
         '3–6 hrs': 0,
@@ -495,11 +503,10 @@ def user_summary():
     }
 
     for res in history:
-        if res.booking_timestamp and res.releasing_timestamp:
-            duration = res.releasing_timestamp - res.booking_timestamp
+        if res.booking_timestamp_ist and res.releasing_timestamp_ist:
+            duration = res.releasing_timestamp_ist - res.booking_timestamp_ist
             duration_hours = duration.total_seconds() / 3600
-            
-            
+
             if duration_hours < 3:
                 duration_buckets['<3 hrs'] += 1
             elif duration_hours <= 6:
@@ -515,39 +522,37 @@ def user_summary():
             else:
                 duration_buckets['>2 days'] += 1
 
-
-
-    #CHart 3
+    # Chart 3: booking durations vs cost
     booking_labels = []
     duration_values = []
     cost_values = []
 
     for idx, res in enumerate(history):
-        if res.booking_timestamp and res.releasing_timestamp and res.total_cost:
-            duration = res.releasing_timestamp - res.booking_timestamp
+        if res.booking_timestamp_ist and res.releasing_timestamp_ist and res.total_cost:
+            duration = res.releasing_timestamp_ist - res.booking_timestamp_ist
             hours = duration.total_seconds() / 3600
             booking_labels.append(f"Booking {idx + 1}")
             duration_values.append(round(hours, 2))
             cost_values.append(res.total_cost)
 
-
     return render_template(
-    'user_summary.html.jinja',
-    user=user,
-    history=history,
-    total_amount_paid=total_amount_paid,
-    total_duration_hours=total_duration_hours,
-    total_bookings=total_bookings,
-    first_booking=first_booking,
-    latest_booking=latest_booking,
-    chart_labels=chart_labels,
-    chart_data=chart_data,
-    chart_duration_labels = list(duration_buckets.keys()),
-    chart_duration_data = list(duration_buckets.values()),
-    chart_booking_labels=booking_labels,
-    chart_duration_data_each=duration_values,
-    chart_cost_data_each=cost_values
-)
+        'user_summary.html.jinja',
+        user=user,
+        history=history,
+        total_amount_paid=total_amount_paid,
+        total_duration_hours=total_duration_hours,
+        total_bookings=total_bookings,
+        first_booking=first_booking,
+        latest_booking=latest_booking,
+        chart_labels=chart_labels,
+        chart_data=chart_data,
+        chart_duration_labels=list(duration_buckets.keys()),
+        chart_duration_data=list(duration_buckets.values()),
+        chart_booking_labels=booking_labels,
+        chart_duration_data_each=duration_values,
+        chart_cost_data_each=cost_values
+    )
+
 
 @user_blueprint.route("/api/lots")
 def get_lots():
