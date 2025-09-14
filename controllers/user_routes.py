@@ -68,27 +68,14 @@ def dashboard():
         history = Reservation.query.filter_by(user_id=user.id).order_by(
             Reservation.booking_timestamp.desc()
         ).all()
-
-        # Summary calculations
-        total_amount_paid = sum(res.total_cost or 0 for res in history)
-        # Total duration parked (sum of all completed bookings)
-        total_duration_hours = 0
         for res in history:
-            if res.booking_timestamp and res.releasing_timestamp:
-                duration = (res.releasing_timestamp - res.booking_timestamp).total_seconds() / 3600
-                total_duration_hours += duration
-        
-        total_duration_hours = round(total_duration_hours, 2)
-
-        total_bookings = len(history)
-        first_booking = history[-1].booking_timestamp if history else None
-        latest_booking = history[0].booking_timestamp if history else None
+            res.booking_timestamp_ist = res.booking_timestamp.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Kolkata"))
 
         # Prepare booking counts by date
         booking_counts = defaultdict(int)
         for res in history:
-            if res.booking_timestamp:
-                date_str = res.booking_timestamp.strftime('%d %b')
+            if res.booking_timestamp_ist:
+                date_str = res.booking_timestamp_ist.strftime('%d %b')
                 booking_counts[date_str] += 1
 
         # Sort by date

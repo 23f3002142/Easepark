@@ -15,7 +15,7 @@ def dashboard():
     if current_user.role != 'admin':
         return "Unauthorised"
     else :
-        lots= ParkingLot.query.filter_by(is_active=True).all()
+        lots = ParkingLot.query.filter_by(is_active=True).order_by(ParkingLot.id.asc()).all()
         return render_template('admin_dashboard.html',Parking_lots=lots)
 
  # adding a new parking lot
