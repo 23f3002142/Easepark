@@ -186,7 +186,7 @@ def reserve_spot(lot_id):
     if lot is None:
         abort(404)
 
-    spot = ParkingSpot.query.filter_by(lot_id=lot_id, status='A').first()
+    spot = ParkingSpot.query.filter_by(lot_id=lot_id, status='A').order_by(ParkingSpot.spot_number.asc()).first()
 
     if not spot:
         return redirect(url_for('user.book_spot'))
@@ -319,7 +319,7 @@ Thank you for choosing EasePark!
 
 
 
-@user_blueprint.route('/release/<int:reservation_id>' , methods=['GET','POST'])
+@user_blueprint.route('/release/<int:reservation_id>', methods=['GET', 'POST'])
 @login_required
 def release_spot(reservation_id):
     reservation = Reservation.query.filter(
@@ -329,24 +329,29 @@ def release_spot(reservation_id):
             Reservation.status == 'active',
             Reservation.status == 'pending_release'
         )
-    ).first()    
+    ).first()
+
     if reservation is None:
-            abort(404)
-    
-    spot=ParkingSpot.query.filter_by(id=reservation.spot_id).first()
+        abort(404)
+
+    spot = ParkingSpot.query.filter_by(id=reservation.spot_id).first()
     if spot is None:
         abort(404)
-    lot=ParkingLot.query.filter_by(id=spot.lot_id).first()
-    
+
+    lot = ParkingLot.query.filter_by(id=spot.lot_id).first()
     if lot is None:
         abort(404)
 
-    if request.method == 'GET':
-        now = datetime.now(ZoneInfo("Asia/Kolkata"))
-        booking_time = reservation.booking_timestamp.replace(tzinfo=ZoneInfo("Asia/Kolkata"))
-        duration = (now - booking_time).total_seconds() / 3600
+    IST = ZoneInfo("Asia/Kolkata")
 
-        duration = max(1, int(duration))
+    if request.method == 'GET':
+        now = datetime.now(IST)
+
+        # convert from UTC → IST
+        booking_time = reservation.booking_timestamp.astimezone(IST)
+
+        duration = (now - booking_time).total_seconds() / 3600
+        duration = max(1, int(duration))  # at least 1 hour
         estimated_cost = duration * reservation.cost_per_unit_time
     else:
         estimated_cost = None
@@ -356,14 +361,16 @@ def release_spot(reservation_id):
 
         if otp_entered:  # OTP verification step
             if reservation.otp_secret == otp_entered:
-                release_time = datetime.now(ZoneInfo("Asia/Kolkata"))
-                booking_time = reservation.booking_timestamp.replace(tzinfo=ZoneInfo("Asia/Kolkata"))
+                release_time = datetime.now(IST)
+                booking_time = reservation.booking_timestamp.astimezone(IST)
+
                 duration = (release_time - booking_time).total_seconds() / 3600
                 duration = max(1, int(duration))
 
                 total_cost = duration * reservation.cost_per_unit_time
 
-                reservation.releasing_timestamp = release_time
+                # Save in UTC (DB-friendly)
+                reservation.releasing_timestamp = datetime.utcnow()
                 reservation.total_cost = total_cost
                 reservation.status = 'completed'
                 reservation.otp_verified = True
@@ -371,7 +378,6 @@ def release_spot(reservation_id):
                 spot.status = 'A'
                 db.session.commit()
 
-                # after db.session.commit()
                 send_receipt_email(current_user, reservation, lot, spot)
                 flash("Spot released successfully. Receipt has been emailed to you.", "success")
                 return redirect(url_for('user.dashboard'))
@@ -389,7 +395,16 @@ def release_spot(reservation_id):
         send_otp_email(current_user.email, otp)
         flash("OTP sent to your registered email. Please verify to release.", "info")
         return render_template("verify_otp.html", lot=lot, spot=spot)
-    return render_template('release_spot.html', reservation=reservation, spot=spot, lot=lot,datetime=datetime,timedelta=timedelta,estimated_cost=estimated_cost)
+
+    return render_template(
+        'release_spot.html',
+        reservation=reservation,
+        spot=spot,
+        lot=lot,
+        datetime=datetime,
+        timedelta=timedelta,
+        estimated_cost=estimated_cost
+    )
 
 
 
