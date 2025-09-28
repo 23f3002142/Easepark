@@ -9,7 +9,7 @@ class Users(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username= db.Column(db.String(100) , unique=True , nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=True)
-    password= db.Column(db.String(255) , nullable=False)
+    password= db.Column(db.String(255) , nullable=True)
     role= db.Column(db.String(15), nullable=False)
     full_name = db.Column(db.String(100), nullable=True)
     phone_number = db.Column(db.String(20), unique=True, nullable=True)

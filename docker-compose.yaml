@@ -1,12 +1,25 @@
-version: "3.9"
 
 services:
   web:
     build: .
     container_name: easepark_web
     env_file: .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
     ports:
       - "5000:5000"
     volumes:
       - .:/app
-    command: flask run --host=0.0.0.0 --port=5000
+    depends_on:
+      - redis
+    command: gunicorn --bind 0.0.0.0:5000 app:app
+
+  redis:
+    # Use the official Redis image from Docker Hub, with the lightweight Alpine base.
+    image: "redis:alpine"
+    # Name the container for easier identification.
+    container_name: easepark_redis
+    # Expose the Redis port so you could potentially connect with a local client if needed.
+    ports:
+      - "6379:6379"
+

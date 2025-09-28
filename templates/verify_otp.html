@@ -38,9 +38,29 @@
       </div>
       <div class="card-footer text-center bg-light rounded-bottom-4">
         <small class="text-muted">Didn’t receive the OTP? 
-          <a href="#" class="text-primary fw-semibold">Resend</a>
+          <span id="timer" class="fw-semibold text-danger">60s</span>
+          <a id="resend-link" href="" class="text-primary fw-semibold" style="display:none;">Resend</a>
         </small>
       </div>
     </div>
   </div>
 </div>
+
+<!-- Countdown Script -->
+<script>
+  let countdown = 60; // 60 seconds
+  let timerElement = document.getElementById("timer");
+  let resendLink = document.getElementById("resend-link");
+
+  let interval = setInterval(() => {
+    if (countdown > 0) {
+      timerElement.innerText = countdown + "s";
+      countdown--;
+    } else {
+      clearInterval(interval);
+      timerElement.style.display = "none";
+      resendLink.style.display = "inline"; 
+      resendLink.href = window.location.href; // reload same page
+    }
+  }, 1000);
+</script>

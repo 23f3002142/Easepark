@@ -14,15 +14,15 @@
   <div class="container mt-5">
     <h2 class="mb-4 text-center">Login to Easepark</h2>
     {% with messages = get_flashed_messages() %}
-        {% if messages%}
-          {% for msg in messages %}
-          <div class="d-flex justify-content-center my-3">
-              <div class="border border-primary-subtle rounded p-3 bg-light text-center">
-                  <p class="mb-0">{{ msg }}</p>
-              </div>
-          </div>            
-          {% endfor%}
-        {% endif%}
+    {% if messages%}
+    {% for msg in messages %}
+    <div class="d-flex justify-content-center my-3">
+      <div class="border border-primary-subtle rounded p-3 bg-light text-center">
+        <p class="mb-0">{{ msg }}</p>
+      </div>
+    </div>
+    {% endfor%}
+    {% endif%}
     {% endwith%}
     <form method="POST" class="card p-4 shadow-sm">
       <div class="mb-3">
@@ -34,6 +34,15 @@
         <input name="password" type="password" class="form-control" required>
       </div>
       <button class="btn btn-success w-100">Login</button>
+      <div class="d-flex align-items-center my-3">
+        <hr class="flex-grow-1">
+        <span class="px-2 text-muted">OR</span>
+        <hr class="flex-grow-1">
+      </div>
+      <a href="{{ url_for('auth.google_login') }}" class="btn btn-outline-primary w-100">
+        <img src="https://developers.google.com/identity/images/g-logo.png" height="20px" class="me-2"> Sign in with
+        Google
+      </a>
       <p class="text-center mt-3">Don't have an account? <a href="{{ url_for('auth.register') }}">Register</a></p>
     </form>
   </div>

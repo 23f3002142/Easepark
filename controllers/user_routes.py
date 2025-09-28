@@ -7,7 +7,7 @@ from collections import defaultdict
 from zoneinfo import ZoneInfo
 from sqlalchemy import or_,and_
 from flask_mail import Message
-from extensions import mail
+from extensions import mail,limiter
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import io
@@ -168,6 +168,7 @@ def send_otp_email(email, otp):
 
 @user_blueprint.route('/book/<int:lot_id>', methods=['GET', 'POST'])
 @login_required
+@limiter.limit("3 per 5 minute")
 def reserve_spot(lot_id):
     lot = ParkingLot.query.filter_by(id=lot_id).first()
     if lot is None:
@@ -177,6 +178,31 @@ def reserve_spot(lot_id):
 
     if not spot:
         return redirect(url_for('user.book_spot'))
+
+    if request.method == 'GET':
+        # Check for an existing pending reservation
+        reservation = (
+            Reservation.query.join(ParkingSpot)
+            .filter(
+                Reservation.user_id == current_user.id,
+                ParkingSpot.lot_id == lot_id,
+                Reservation.status == "pending"
+            )
+            .order_by(Reservation.id.desc())
+            .first()
+        )
+
+
+        if reservation:
+            # Generate new OTP for resend
+            otp = generate_otp()
+            reservation.otp_secret = otp
+            db.session.commit()
+            send_otp_email(current_user.email, otp)
+            flash("A new OTP has been sent to your email.", "info")
+            return render_template('verify_otp.html', lot=lot, spot=reservation.spot)
+
+        return render_template('reserve_spot.html', lot=lot, spot=spot, user=current_user)
 
     if request.method == 'POST':
         otp_entered = request.form.get("otp")
@@ -308,6 +334,7 @@ Thank you for choosing EasePark!
 
 @user_blueprint.route('/release/<int:reservation_id>', methods=['GET', 'POST'])
 @login_required
+@limiter.limit("5 per minute")
 def release_spot(reservation_id):
     reservation = Reservation.query.filter(
         Reservation.id == reservation_id,
