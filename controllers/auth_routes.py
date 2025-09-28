@@ -56,7 +56,9 @@ def logout():
 #Google auths 
 @auth.route('/google-login')
 def google_login():
-    redirect_uri = url_for('auth.google_authorize', _external=True)
+    base_url = os.getenv('BASE_URL', 'http://localhost:5000')
+    redirect_uri = f"{base_url}{url_for('auth.google_authorize')}"
+
     nonce = base64.urlsafe_b64encode(os.urandom(16)).decode() # type: ignore
     session['nonce'] = nonce
     return oauth.google.authorize_redirect(redirect_uri, nonce=session['nonce']) # type: ignore
