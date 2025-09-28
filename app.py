@@ -19,6 +19,7 @@ load_dotenv()
 app=Flask(__name__)
 
 #config
+app.config['SERVER_NAME'] = os.getenv("SERVER_NAME")
 app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
 basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("SQLALCHEMY_DATABASE_URI")
