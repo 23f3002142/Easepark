@@ -21,7 +21,24 @@ app=Flask(__name__)
 #config
 app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
 basedir = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("SQLALCHEMY_DATABASE_URI")
+database_url = os.getenv("SQLALCHEMY_DATABASE_URI")
+
+# Ensure the URL uses the 'postgresql://' prefix
+if database_url and database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+# Ensure sslmode=require is set for secure connections on Render
+if database_url and 'sslmode' not in database_url:
+    database_url += '?sslmode=require'
+
+# Set the final, corrected database URL
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+
+# Configure the SQLAlchemy engine to handle connection pooling and prevent timeouts
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    "pool_recycle": 280,  # Recycle connections to prevent them from timing out
+    "pool_pre_ping": True  # Check if a connection is alive before using it
+}
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['RATELIMIT_STORAGE_URI'] = os.getenv("REDIS_URL")
 
