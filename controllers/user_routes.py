@@ -163,7 +163,8 @@ def send_otp_email(email, otp):
                   sender="kshitij.3001@gmail.com", 
                   recipients=[email])
     msg.body = f"Your OTP for EasePark booking action is: {otp}. Do not share it."
-    mail.send(msg)
+    # mail.send(msg)
+    print(f"DEBUG: OTP for {email} would be {otp}") # Add a print statement to see the OTP in your logs
 
 
 @user_blueprint.route('/book/<int:lot_id>', methods=['GET', 'POST'])
