@@ -247,7 +247,7 @@ def reserve_spot(lot_id):
             db.session.commit()
             send_otp_email(current_user.email, otp)
             flash("A new OTP has been sent to your email.", "info")
-            return render_template('verify_otp.html', lot=lot, spot=reservation.spot)
+            return render_template('verify_otp.html', lot=lot, spot=reservation.spot,user=current_user)
 
         return render_template('reserve_spot.html', lot=lot, spot=spot, user=current_user)
 
@@ -271,7 +271,7 @@ def reserve_spot(lot_id):
                 return redirect(url_for('user.dashboard'))
             else:
                 flash("Invalid OTP, please try again.", "danger")
-                return render_template('verify_otp.html', lot=lot, spot=spot)
+                return render_template('verify_otp.html', lot=lot, spot=spot,user=current_user)
 
         else:
             # 🚨 Check if this vehicle number is already in an active reservation
@@ -305,7 +305,7 @@ def reserve_spot(lot_id):
 
             send_otp_email(current_user.email, otp)
             flash("OTP sent to your registered email. Please verify.", "info")
-            return render_template('verify_otp.html', lot=lot, spot=spot)
+            return render_template('verify_otp.html', lot=lot, spot=spot,user=current_user)
 
     return render_template('reserve_spot.html', lot=lot, spot=spot, user=current_user)
 
