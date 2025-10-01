@@ -165,7 +165,8 @@ def send_otp_email(email, otp):
                   recipients=[email])
     msg.body = f"Your OTP for EasePark booking action is: {otp}. Do not share it."
     try:
-        mail.send(msg)
+        # mail.send(msg)
+        print("Trying to send email...")
     except smtplib.SMTPException as e:
         print("SMTP ERROR:", e)
     print(f"DEBUG: OTP for {email} would be {otp}") # Add a print statement to see the OTP in your logs
