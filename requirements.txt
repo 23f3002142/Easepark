@@ -12,3 +12,4 @@ redis>=4.5.1
 Flask-Migrate==4.0.4
 Authlib==1.2.0
 requests
+sib-api-v3-sdk
