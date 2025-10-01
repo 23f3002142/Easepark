@@ -141,7 +141,8 @@ def user_profile_edit():
 @login_required
 @limiter.limit("10 per 1 minute")
 def choose_booking():
-    return render_template("choose_booking.html")
+    user=current_user
+    return render_template("choose_booking.html",user=user)
 
 @user_blueprint.route("/api/lots")
 def get_lots():
@@ -169,7 +170,7 @@ def book_map():
 def book_spot():
     search_query= request.args.get('search','')
     lots=[]
-
+    user=current_user
     if search_query:
         lots = ParkingLot.query.filter(
             and_(
@@ -183,7 +184,7 @@ def book_spot():
         ).all()
     
 
-    return render_template('book_spot.html', lots=lots,search_query=search_query)
+    return render_template('book_spot.html', lots=lots,search_query=search_query,user=user)
 
 def generate_otp():
     return str(random.randint(100000, 999999)) 
