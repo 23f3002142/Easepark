@@ -1,6 +1,8 @@
 
 from flask import Blueprint,render_template,flash,request,url_for,abort,redirect,jsonify,make_response
 from flask_login import login_required,current_user
+import sib_api_v3_sdk
+from sib_api_v3_sdk.rest import ApiException
 from models.user_model import Users,ParkingLot,ParkingSpot,Reservation,db
 from datetime import datetime , timedelta
 from collections import defaultdict
@@ -161,17 +163,28 @@ def generate_otp():
     return str(random.randint(100000, 999999)) 
 
 def send_otp_email(email, otp):
-    msg = Message("EasePark OTP Verification", 
-                  sender=os.getenv("MAIL_DEFAULT_SENDER"), 
-                  recipients=[email])
-    msg.body = f"Your OTP for EasePark booking action is: {otp}. Do not share it."
-    try:
-        print("Trying to send email...")
-        mail.send(msg)
-    except smtplib.SMTPException as e:
-        print("SMTP ERROR:", e)
-    print(f"DEBUG: OTP for {email} would be {otp}") # Add a print statement to see the OTP in your logs
+    configuration = sib_api_v3_sdk.Configuration()
+    configuration.api_key['api-key'] = os.getenv("BREVO_API_KEY")
 
+    api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
+    
+    subject = "EasePark OTP Verification"
+    sender = {"email": os.getenv("MAIL_DEFAULT_SENDER")}
+    to = [{"email": email}]
+    text_content = f"Your OTP for EasePark booking action is: {otp}. Do not share it."
+
+    send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
+        to=to, 
+        sender=sender, 
+        subject=subject, 
+        text_content=text_content
+    )
+
+    try:
+        api_instance.send_transac_email(send_smtp_email)
+        print(f"DEBUG: OTP for {email} sent successfully via Brevo API: {otp}")
+    except ApiException as e:
+        print("Brevo API Exception:", e)
 
 @user_blueprint.route('/book/<int:lot_id>', methods=['GET', 'POST'])
 @login_required
