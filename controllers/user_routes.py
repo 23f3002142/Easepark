@@ -10,6 +10,7 @@ from flask_mail import Message
 from extensions import mail,limiter
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+import smtplib
 import io
 
 import random
@@ -163,7 +164,10 @@ def send_otp_email(email, otp):
                   sender="kshitij.3001@gmail.com", 
                   recipients=[email])
     msg.body = f"Your OTP for EasePark booking action is: {otp}. Do not share it."
-    mail.send(msg)
+    try:
+        mail.send(msg)
+    except smtplib.SMTPException as e:
+        print("SMTP ERROR:", e)
     print(f"DEBUG: OTP for {email} would be {otp}") # Add a print statement to see the OTP in your logs
 
 
