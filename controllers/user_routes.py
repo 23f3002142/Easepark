@@ -12,6 +12,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import smtplib
 import io
+import os
 
 import random
 
@@ -161,12 +162,12 @@ def generate_otp():
 
 def send_otp_email(email, otp):
     msg = Message("EasePark OTP Verification", 
-                  sender="kshitij.3001@gmail.com", 
+                  sender=os.getenv("MAIL_DEFAULT_SENDER"), 
                   recipients=[email])
     msg.body = f"Your OTP for EasePark booking action is: {otp}. Do not share it."
     try:
-        # mail.send(msg)
         print("Trying to send email...")
+        mail.send(msg)
     except smtplib.SMTPException as e:
         print("SMTP ERROR:", e)
     print(f"DEBUG: OTP for {email} would be {otp}") # Add a print statement to see the OTP in your logs
