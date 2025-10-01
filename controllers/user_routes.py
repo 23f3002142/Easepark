@@ -12,6 +12,8 @@ from flask_mail import Message
 from extensions import mail,limiter
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+from reportlab.lib.units import inch
+from reportlab.lib import colors
 import smtplib
 import io
 import os
@@ -302,34 +304,64 @@ def booking_history():
 def generate_receipt_pdf(reservation, lot, spot):
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=letter)
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(200, 750, "EasePark Parking Receipt")
 
+    # Header
+    c.setFont("Helvetica-Bold", 20)
+    c.setFillColor(colors.HexColor("#2C3E50"))
+    c.drawCentredString(300, 750, "EasePark Parking Receipt")
+
+    # Line below header
+    c.setStrokeColor(colors.black)
+    c.setLineWidth(1)
+    c.line(50, 740, 550, 740)
+
+    # Body
     c.setFont("Helvetica", 12)
-    c.drawString(50, 700, f"User: {current_user.full_name or current_user.username}")
-    c.drawString(50, 680, f"Parking Lot: {lot.parking_name}")
-    c.drawString(50, 660, f"Spot Number: {spot.spot_number}")
-    c.drawString(50, 640, f"Vehicle Number: {reservation.vehicle_number}")
-    c.drawString(50, 620, f"Booking Time: {reservation.booking_timestamp}")
-    c.drawString(50, 600, f"Release Time: {reservation.releasing_timestamp or 'N/A'}")
-    c.drawString(50, 580, f"Total Cost: ₹{reservation.total_cost or 0}")
+    y = 700
+    line_gap = 20
 
-    c.drawString(50, 540, "Thank you for using EasePark!")
+    details = [
+        ("User", reservation.user.full_name or reservation.user.username),
+        ("Parking Lot", lot.parking_name),
+        ("Spot Number", spot.spot_number),
+        ("Vehicle Number", reservation.vehicle_number),
+        ("Booking Time", str(reservation.booking_timestamp)),
+        ("Release Time", str(reservation.releasing_timestamp or 'N/A')),
+        ("Total Cost", f"₹{reservation.total_cost or 0}"),
+    ]
+
+    for label, value in details:
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(60, y, f"{label}:")
+        c.setFont("Helvetica", 12)
+        c.drawString(200, y, str(value))
+        y -= line_gap
+
+    # Footer
+    c.setFillColor(colors.HexColor("#16A085"))
+    c.setFont("Helvetica-BoldOblique", 14)
+    c.drawCentredString(300, y - 40, "Thank you for using EasePark!")
+
     c.showPage()
     c.save()
 
     buffer.seek(0)
     return buffer
 
+
 def send_receipt_email(user, reservation, lot, spot):
     pdf_buffer = generate_receipt_pdf(reservation, lot, spot)
 
-    msg = Message(
-        subject="EasePark Booking Receipt",
-        sender="your_email@gmail.com",
-        recipients=[user.email]
-    )
-    msg.body = f"""
+    # Configure Brevo API
+    configuration = sib_api_v3_sdk.Configuration()
+    configuration.api_key['api-key'] = os.getenv("BREVO_API_KEY")
+    api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
+
+    subject = "EasePark Booking Receipt"
+    sender = {"email": os.getenv("MAIL_DEFAULT_SENDER")}
+    to = [{"email": user.email}]
+
+    text_content = f"""
 Hello {user.username},
 
 Here is your receipt for your recent booking with EasePark:
@@ -341,14 +373,26 @@ Total Cost: ₹{reservation.total_cost}
 Thank you for choosing EasePark!
 """
 
-    # attached PDF
-    msg.attach(
-        f"receipt_{reservation.id}.pdf",
-        "application/pdf",
-        pdf_buffer.read()
+    # Attach PDF (Brevo requires base64 encoding)
+    import base64
+    pdf_content = base64.b64encode(pdf_buffer.read()).decode('utf-8')
+
+    send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
+        to=to,
+        sender=sender,
+        subject=subject,
+        text_content=text_content,
+        attachment=[{
+            "content": pdf_content,
+            "name": f"receipt_{reservation.id}.pdf"
+        }]
     )
 
-    mail.send(msg)
+    try:
+        api_instance.send_transac_email(send_smtp_email)
+        print(f"DEBUG: Receipt email sent to {user.email}")
+    except ApiException as e:
+        print("Brevo API Exception:", e)
 
 
 
@@ -412,8 +456,15 @@ def release_spot(reservation_id):
                 spot.status = 'A'
                 db.session.commit()
 
-                send_receipt_email(current_user, reservation, lot, spot)
-                flash("Spot released successfully. Receipt has been emailed to you.", "success")
+                try:
+                    # ✅ Use Brevo API instead of SMTP
+                    send_receipt_email(current_user, reservation, lot, spot)
+                    flash("Spot released successfully. Receipt has been emailed to you.", "success")
+                except Exception as e:
+                    # Catch unexpected API errors so Render doesn’t timeout
+                    print("Error sending receipt email:", e)
+                    flash("Spot released successfully, but receipt email failed to send.", "warning")
+
                 return redirect(url_for('user.dashboard'))
             else:
                 flash("Invalid OTP, please try again.", "danger")
@@ -439,8 +490,6 @@ def release_spot(reservation_id):
         timedelta=timedelta,
         estimated_cost=estimated_cost
     )
-
-
 
 
 @user_blueprint.route("/receipt/<int:reservation_id>")
