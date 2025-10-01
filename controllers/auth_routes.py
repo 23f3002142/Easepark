@@ -50,7 +50,7 @@ def login():
 def logout():
     logout_user()
     flash('you have logged out')
-    return redirect(url_for('auth.login'))
+    return redirect(url_for('home'))
 
 
 #Google auths 

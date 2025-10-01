@@ -13,47 +13,51 @@
 <body>
 
   <!-- navbar -->
-  <nav class="navbar navbar-expand-lg bg-light border-bottom shadow-sm" id="navbar">
+  <nav class="navbar navbar-expand-lg bg-white shadow-sm py-2">
     <div class="container-fluid">
-      <a class="navbar-brand" href="{{ url_for('user.dashboard') }}">
-        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Easepark Logo"
-          style="height: 40px; width: auto;">
+      <a class="navbar-brand d-flex align-items-center gap-2" href="{{ url_for('user.dashboard') }}">
+        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="EasePark logo">
       </a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
-        aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+
+
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
         <span class="navbar-toggler-icon"></span>
       </button>
-      <div class="collapse navbar-collapse" id="navbarSupportedContent">
-        <ul class="navbar-nav mx-auto mb-2 mb-lg-0">
-          <li class="nav-item">
-            <a class="nav-link active" aria-current="page" href="{{ url_for('user.dashboard') }}">Dashboard</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('user.choose_booking') }}">Book Spot</a>
-          </li>
-          
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('user.booking_history') }}">My Bookings</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('user.user_summary') }}">Summary</a>
-          </li>
 
+
+      <div class="collapse navbar-collapse" id="navMain">
+        <!-- Centered links -->
+        <ul class="navbar-nav mx-auto">
+          <li class="nav-item"><a class="nav-link active" href="{{ url_for('user.dashboard') }}">Dashboard</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('user.choose_booking') }}">Book Spot</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('user.booking_history') }}">My Bookings</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('user.user_summary') }}">Summary</a></li>
         </ul>
 
 
-        <div class="btn-group dropstart">
-          <button type="button" class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown"
-            aria-expanded="false">
-            Profile
-          </button>
-          <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="{{ url_for('user.user_profile_view') }}">View profile</a></li>
-            <li><a class="dropdown-item" href="{{ url_for('user.user_profile_edit') }}">Edit profile</a></li>
-            <li><a class="dropdown-item" href="{{url_for('auth.logout')}}">logout</a></li>
-          </ul>
-        </div>
+        <!-- User info and dropdown -->
+        <div class="d-flex align-items-center gap-3">
+          <div class="text-end d-none d-md-block">
+            <div class="fw-semibold">{{ user.username }}</div>
+            <div class="small-muted">{{ user.email }}</div>
+          </div>
 
+
+          <div class="dropdown">
+            <button class="btn btn-outline-secondary d-flex align-items-center gap-2 dropdown-toggle" id="profileMenu"
+              data-bs-toggle="dropdown" aria-expanded="false">
+              <span class="d-none d-md-inline">Profile</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileMenu">
+              <li><a class="dropdown-item" href="{{ url_for('user.user_profile_view') }}">View profile</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('user.user_profile_edit') }}">Edit profile</a></li>
+              <li>
+                <hr class="dropdown-divider">
+              </li>
+              <li><a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">Logout</a></li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   </nav>

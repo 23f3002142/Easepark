@@ -17,13 +17,13 @@ from reportlab.lib import colors
 import smtplib
 import io
 import os
-
 import random
 
 user_blueprint=Blueprint('user',__name__,url_prefix='/dashboard')
 
 @user_blueprint.route('/user')
 @login_required
+@limiter.limit("10 per 1 minute")
 def dashboard():
 
     if current_user.role != 'user':
@@ -108,6 +108,7 @@ def dashboard():
     
 @user_blueprint.route('/profile/view')
 @login_required
+@limiter.limit("10 per 1 minute")
 def user_profile_view():
     if current_user.role != 'user':
         abort(404)
@@ -117,6 +118,7 @@ def user_profile_view():
 
 @user_blueprint.route('/profile/edit', methods=['GET','POST'])
 @login_required
+@limiter.limit("10 per 1 minute")
 def user_profile_edit():
     if current_user.role != 'user':
         abort(404)
@@ -136,6 +138,8 @@ def user_profile_edit():
     return render_template('user_profile_edit.html',user=user)
 
 @user_blueprint.route("/choose_booking")
+@login_required
+@limiter.limit("10 per 1 minute")
 def choose_booking():
     return render_template("choose_booking.html")
 
@@ -161,6 +165,7 @@ def book_map():
 
 @user_blueprint.route('/book', methods=['GET','POST'])
 @login_required
+@limiter.limit("10 per 1 minute")
 def book_spot():
     search_query= request.args.get('search','')
     lots=[]
@@ -209,7 +214,7 @@ def send_otp_email(email, otp):
 
 @user_blueprint.route('/book/<int:lot_id>', methods=['GET', 'POST'])
 @login_required
-@limiter.limit("10 per 5 minute")
+@limiter.limit("10 per 3 minute")
 def reserve_spot(lot_id):
     lot = ParkingLot.query.filter_by(id=lot_id).first()
     if lot is None:
@@ -307,6 +312,7 @@ def reserve_spot(lot_id):
 
 @user_blueprint.route('/history')
 @login_required
+@limiter.limit("10 per 1 minute")
 def booking_history():
     history = Reservation.query.filter_by(user_id=current_user.id).order_by(Reservation.booking_timestamp.desc()).all()
     user=current_user
@@ -417,7 +423,7 @@ Thank you for choosing EasePark!
 
 @user_blueprint.route('/release/<int:reservation_id>', methods=['GET', 'POST'])
 @login_required
-@limiter.limit("5 per minute")
+@limiter.limit("10 per 3 minute")
 def release_spot(reservation_id):
     reservation = Reservation.query.filter(
         Reservation.id == reservation_id,
@@ -513,6 +519,7 @@ def release_spot(reservation_id):
 
 @user_blueprint.route("/receipt/<int:reservation_id>")
 @login_required
+@limiter.limit("10 per 1 minute")
 def download_receipt(reservation_id):
     reservation = Reservation.query.filter_by(
         id=reservation_id, user_id=current_user.id
@@ -559,6 +566,7 @@ def download_receipt(reservation_id):
 
 @user_blueprint.route('/user-summary')
 @login_required
+@limiter.limit("10 per 1 minute")
 def user_summary():
     user = current_user
     if current_user.role != 'user':
