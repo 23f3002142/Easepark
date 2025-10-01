@@ -139,6 +139,25 @@ def user_profile_edit():
 def choose_booking():
     return render_template("choose_booking.html")
 
+@user_blueprint.route("/api/lots")
+def get_lots():
+    lots=ParkingLot.query.filter_by(is_active=True).all()
+    lots_data=[]
+    for lot in lots:
+        lots_data.append({
+            "id": lot.id,
+            "name": lot.parking_name,
+            "address": lot.address,
+            "price": lot.price,
+            "latitude": lot.latitude,
+            "longitude": lot.longitude,
+            "max_spots": lot.max_spots
+        })
+    return jsonify(lots_data)
+
+@user_blueprint.route("/book_map")
+def book_map():
+    return render_template("book_map.html")
 
 @user_blueprint.route('/book', methods=['GET','POST'])
 @login_required
@@ -652,22 +671,4 @@ def user_summary():
     )
 
 
-@user_blueprint.route("/api/lots")
-def get_lots():
-    lots=ParkingLot.query.filter_by(is_active=True).all()
-    lots_data=[]
-    for lot in lots:
-        lots_data.append({
-            "id": lot.id,
-            "name": lot.parking_name,
-            "address": lot.address,
-            "price": lot.price,
-            "latitude": lot.latitude,
-            "longitude": lot.longitude,
-            "max_spots": lot.max_spots
-        })
-    return jsonify(lots_data)
 
-@user_blueprint.route("/book_map")
-def book_map():
-    return render_template("book_map.html")

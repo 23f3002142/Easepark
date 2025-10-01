@@ -1,84 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EasePark - Book Parking</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+      body, html {
+          height: 100%;
+          margin: 0;
+      }
 
+      #map {
+          height: 100vh; /* Full viewport height */
+          width: 100%;
+      }
 
-<style>
-  body, html {
-      height: 100%;
-      margin: 0;
-  }
+      /* Title overlay box */
+      .map-title-box {
+          position: absolute;
+          top: 20px; /* leave space for navbar */
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(255, 255, 255, 0.8); /* translucent white */
+          padding: 15px 25px;
+          border-radius: 12px;
+          text-align: center;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+          z-index: 1000; /* keep above map */
+      }
 
-  #map {
-      height: 100vh; /* Full viewport height */
-      width: 100%;
-  }
+      .map-title-box h2 {
+          margin: 0;
+          font-weight: bold;
+          color: #0d6efd;
+      }
 
-  /* Title overlay box */
-  .map-title-box {
-      position: absolute;
-      top: 20px; /* leave space for navbar */
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(255, 255, 255, 0.8); /* translucent white */
-      padding: 15px 25px;
-      border-radius: 12px;
-      text-align: center;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-      z-index: 1000; /* keep above map */
-  }
+      .map-title-box p {
+          margin: 5px 0 0;
+          color: #555;
+      }
+    </style>
+</head>
+<body>
 
-  .map-title-box h2 {
-      margin: 0;
-      font-weight: bold;
-      color: #0d6efd;
-  }
+    <!-- Map title overlay -->
+    <div class="map-title-box">
+        <h2>Select a Parking Lot on Map</h2>
+        <p>Click on a marker to see details and reserve your spot.</p>
+    </div>
 
-  .map-title-box p {
-      margin: 5px 0 0;
-      color: #555;
-  }
-</style>
+    <!-- Fullscreen Map -->
+    <div id="map"></div>
 
-<!-- Map title overlay -->
-<div class="map-title-box">
-    <h2>Select a Parking Lot on Map</h2>
-    <p>Click on a marker to see details and reserve your spot.</p>
-</div>
+    <!-- Leaflet.js CSS + JS -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-<!-- Fullscreen Map -->
-<div id="map"></div>
+    <script>
+    // Initialize map
+    var map = L.map('map');
 
-<!-- Leaflet.js CSS + JS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    // Tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
 
-<script>
-// Initialize map centered on Bhopal 
-var map = L.map('map').setView([23.2599, 77.4126], 13);
+    // Function to fetch and display parking lots
+    function fetchParkingLots() {
+        const reserveBaseUrl = "{{ url_for('user.reserve_spot', lot_id=0) }}";
 
-// Tile layer 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors'
-}).addTo(map);
+        // Fetch lots from backend
+        fetch("{{ url_for('user.get_lots') }}")
+          .then(response => response.json())
+          .then(lots => {
+              lots.forEach(lot => {
+                  if (lot.latitude && lot.longitude) {
+                      var marker = L.marker([lot.latitude, lot.longitude]).addTo(map);
 
-const reserveBaseUrl = "{{ url_for('user.reserve_spot', lot_id=0) }}";  
+                      let reserveUrl = reserveBaseUrl.replace("0", lot.id);
 
-// Fetch lots from backend
-fetch("{{ url_for('user.get_lots') }}")
-  .then(response => response.json())
-  .then(lots => {
-      lots.forEach(lot => {
-          if (lot.latitude && lot.longitude) {
-              var marker = L.marker([lot.latitude, lot.longitude]).addTo(map);
-              
-              let reserveUrl = reserveBaseUrl.replace("0", lot.id);
-              
-              marker.bindPopup(
-                  `<b>${lot.name}</b><br>
-                   ${lot.address}<br>
-                   Price: ₹${lot.price}/hr<br>
-                   Spots: ${lot.max_spots}<br>
-                   <a href="${reserveUrl}" class="btn btn-sm btn-primary mt-2">Reserve</a>`
-              );
-          }
-      });
-  });
-</script>
+                      marker.bindPopup(
+                          `<b>${lot.name}</b><br>
+                           ${lot.address}<br>
+                           Price: ₹${lot.price}/hr<br>
+                           Spots: ${lot.max_spots}<br>
+                           <a href="${reserveUrl}" class="btn btn-sm btn-primary mt-2">Reserve</a>`
+                      );
+                  }
+              });
+          });
+    }
+
+    // Get user's location
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+            var lat = position.coords.latitude;
+            var lon = position.coords.longitude;
+
+            // Set map view to user's location
+            map.setView([lat, lon], 13);
+
+            // Add a marker for the user's current location
+            L.marker([lat, lon]).addTo(map)
+                .bindPopup('<b>You are here</b>').openPopup();
+
+            // Fetch parking lots after getting user location
+            fetchParkingLots();
+
+        }, function() {
+            // Handle error or user denial
+            handleLocationError();
+        });
+    } else {
+        // Browser doesn't support Geolocation
+        handleLocationError();
+    }
+
+    function handleLocationError() {
+        // Default to Bhopal if location access is denied or fails
+        map.setView([23.2599, 77.4126], 13);
+        alert("Could not access your location. Showing map for Bhopal.");
+        fetchParkingLots();
+    }
+    </script>
+
+</body>
+</html>
