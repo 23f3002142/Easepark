@@ -494,7 +494,7 @@ def release_spot(reservation_id):
                 return redirect(url_for('user.dashboard'))
             else:
                 flash("Invalid OTP, please try again.", "danger")
-                return render_template("verify_otp.html", lot=lot, spot=spot)
+                return render_template("verify_otp.html", lot=lot, spot=spot,user=current_user)
 
         # Step 1: Generate and send OTP for release
         otp = str(random.randint(100000, 999999))
@@ -505,7 +505,7 @@ def release_spot(reservation_id):
 
         send_otp_email(current_user.email, otp)
         flash("OTP sent to your registered email. Please verify to release.", "info")
-        return render_template("verify_otp.html", lot=lot, spot=spot)
+        return render_template("verify_otp.html", lot=lot, spot=spot,user=current_user)
 
     return render_template(
         'release_spot.html',
@@ -514,7 +514,8 @@ def release_spot(reservation_id):
         lot=lot,
         datetime=datetime,
         timedelta=timedelta,
-        estimated_cost=estimated_cost
+        estimated_cost=estimated_cost,
+        user=current_user
     )
 
 
