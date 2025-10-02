@@ -164,27 +164,37 @@ def get_lots():
 def book_map():
     return render_template("book_map.html")
 
-@user_blueprint.route('/book', methods=['GET','POST'])
+@user_blueprint.route('/book', methods=['GET', 'POST'])
 @login_required
 @limiter.limit("10 per 1 minute")
 def book_spot():
-    search_query= request.args.get('search','')
-    lots=[]
-    user=current_user
-    if search_query:
-        lots = ParkingLot.query.filter(
-            and_(
-                ParkingLot.is_active == True,#type: ignore
-                or_(
-                    ParkingLot.parking_name.ilike(f'%{search_query}%'),
-                    ParkingLot.address.ilike(f'%{search_query}%'),
-                    ParkingLot.pin_code.ilike(f'%{search_query}%')
-                )
-            )
-        ).all()
-    
+    search_query = request.args.get('search', '')
+    page = request.args.get('page', 1, type=int)
+    per_page = 3  # adjust as needed
 
-    return render_template('book_spot.html', lots=lots,search_query=search_query,user=user)
+    lots_query = ParkingLot.query.filter(
+        ParkingLot.is_active == True  # type: ignore
+    )
+
+    if search_query:
+        lots_query = lots_query.filter(
+            or_(
+                ParkingLot.parking_name.ilike(f'%{search_query}%'),
+                ParkingLot.address.ilike(f'%{search_query}%'),
+                ParkingLot.pin_code.ilike(f'%{search_query}%')
+            )
+        )
+
+    pagination = lots_query.paginate(page=page, per_page=per_page, error_out=False)
+    lots = pagination.items
+
+    return render_template(
+        'book_spot.html',
+        lots=lots,
+        pagination=pagination,
+        search_query=search_query,
+        user=current_user
+    )
 
 def generate_otp():
     return str(random.randint(100000, 999999)) 
@@ -315,15 +325,32 @@ def reserve_spot(lot_id):
 @login_required
 @limiter.limit("10 per 1 minute")
 def booking_history():
-    history = Reservation.query.filter_by(user_id=current_user.id).order_by(Reservation.booking_timestamp.desc()).all()
-    user=current_user
+    # get the current page from query params (default = 1)
+    page = request.args.get('page', 1, type=int)
+    per_page = 7   # number of bookings per page (you can change)
+
+    # paginate query instead of fetching all
+    history_pagination = Reservation.query.filter_by(user_id=current_user.id) \
+        .order_by(Reservation.booking_timestamp.desc()) \
+        .paginate(page=page, per_page=per_page, error_out=False)
+
+    # current page items
+    history = history_pagination.items  
+
+    # convert timestamps
     for res in history:
         res.booking_timestamp_ist = res.booking_timestamp.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Kolkata"))
         if res.releasing_timestamp:
             res.releasing_timestamp_ist = res.releasing_timestamp.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Kolkata"))
         else:
             res.releasing_timestamp_ist = None
-    return render_template('booking_history.html', history=history , user=user)
+
+    return render_template(
+        'booking_history.html',
+        history=history,
+        pagination=history_pagination,
+        user=current_user
+    )
 
 
 
@@ -575,11 +602,16 @@ def user_summary():
         abort(403)
 
     user = Users.query.get_or_404(user.id)
-    history = Reservation.query.filter_by(user_id=user.id).order_by(
-        Reservation.booking_timestamp.desc()
-    ).all()
+    # pagination
+    page = request.args.get('page', 1, type=int)
+    per_page = 5   # show 5 bookings per page
+    history_pagination = Reservation.query.filter_by(user_id=user.id) \
+        .order_by(Reservation.booking_timestamp.desc()) \
+        .paginate(page=page, per_page=per_page, error_out=False)
 
-    # Convert timestamps to IST for each reservation
+    history = history_pagination.items
+
+    # Convert timestamps to IST
     for res in history:
         if res.booking_timestamp:
             res.booking_timestamp_ist = res.booking_timestamp.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Kolkata"))
@@ -591,24 +623,35 @@ def user_summary():
         else:
             res.releasing_timestamp_ist = None
 
+    all=Reservation.query.filter_by(user_id=user.id).all()
+    for res in all:
+        if res.booking_timestamp:
+            res.booking_timestamp_ist = res.booking_timestamp.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Kolkata"))
+        else:
+            res.booking_timestamp_ist = None
+
+        if res.releasing_timestamp:
+            res.releasing_timestamp_ist = res.releasing_timestamp.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Kolkata"))
+        else:
+            res.releasing_timestamp_ist = None
     # Summary calculations
-    total_amount_paid = sum(res.total_cost or 0 for res in history)
+    total_amount_paid = sum(res.total_cost or 0 for res in all)
 
     # Total duration parked (sum of all completed bookings)
     total_duration_hours = 0
-    for res in history:
+    for res in all:
         if res.booking_timestamp_ist and res.releasing_timestamp_ist:
             duration = (res.releasing_timestamp_ist - res.booking_timestamp_ist).total_seconds() / 3600
             total_duration_hours += duration
     total_duration_hours = round(total_duration_hours, 2)
 
-    total_bookings = len(history)
-    first_booking = history[-1].booking_timestamp_ist if history else None
-    latest_booking = history[0].booking_timestamp_ist if history else None
+    total_bookings = len(all)
+    first_booking = all[-1].booking_timestamp_ist if all else None
+    latest_booking = all[0].booking_timestamp_ist if all else None
 
     # Prepare booking counts by date
     booking_counts = defaultdict(int)
-    for res in history:
+    for res in all:
         if res.booking_timestamp_ist:
             date_str = res.booking_timestamp_ist.strftime('%d %b')
             booking_counts[date_str] += 1
@@ -629,7 +672,7 @@ def user_summary():
         '>2 days': 0
     }
 
-    for res in history:
+    for res in all:
         if res.booking_timestamp_ist and res.releasing_timestamp_ist:
             duration = res.releasing_timestamp_ist - res.booking_timestamp_ist
             duration_hours = duration.total_seconds() / 3600
@@ -654,7 +697,7 @@ def user_summary():
     duration_values = []
     cost_values = []
 
-    for idx, res in enumerate(history):
+    for idx, res in enumerate(all):
         if res.booking_timestamp_ist and res.releasing_timestamp_ist and res.total_cost:
             duration = res.releasing_timestamp_ist - res.booking_timestamp_ist
             hours = duration.total_seconds() / 3600
@@ -666,6 +709,7 @@ def user_summary():
         'user_summary.html.jinja',
         user=user,
         history=history,
+        pagination=history_pagination,
         total_amount_paid=total_amount_paid,
         total_duration_hours=total_duration_hours,
         total_bookings=total_bookings,

@@ -63,6 +63,41 @@
     </table>
   </div>
 </div>
+<!-- Pagination -->
+  {% if pagination.pages > 1 %}
+  <nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+      <!-- Previous -->
+      {% if pagination.has_prev %}
+      <li class="page-item">
+        <a class="page-link" href="{{ url_for('user.book_spot', page=pagination.prev_num, search=search_query) }}">«</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">«</span></li>
+      {% endif %}
+
+      <!-- Page Numbers -->
+      {% for p in range(1, pagination.pages + 1) %}
+        {% if p == pagination.page %}
+          <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+        {% else %}
+          <li class="page-item">
+            <a class="page-link" href="{{ url_for('user.book_spot', page=p, search=search_query) }}">{{ p }}</a>
+          </li>
+        {% endif %}
+      {% endfor %}
+
+      <!-- Next -->
+      {% if pagination.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="{{ url_for('user.book_spot', page=pagination.next_num, search=search_query) }}">»</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">»</span></li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
 
 </body>
 </html>
