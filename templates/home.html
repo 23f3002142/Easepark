@@ -1,301 +1,401 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>EasePark</title>
 
     <!-- Bootstrap & Icons -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css"
+    />
 
     <style>
-        body {
-            font-family: "Poppins", sans-serif;
+      body {
+        font-family: "Poppins", sans-serif;
+      }
+
+      /* Navbar */
+      .navbar {
+        background: linear-gradient(90deg, #0d6efd, #0a58ca);
+      }
+
+      .navbar .nav-link {
+        color: #fff !important;
+        font-weight: 500;
+        transition: 0.3s;
+      }
+
+      .navbar .nav-link:hover {
+        color: #ffc107 !important;
+      }
+
+      /* Hero Section */
+      .hero {
+        height: 100vh;
+        background: linear-gradient(135deg, #0d6efd, #0a58);
+        color: white;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .car-emoji {
+        font-size: 6rem;
+        /* adjust size of emoji */
+        animation: float 3s ease-in-out infinite;
+      }
+
+      @keyframes float {
+        0% {
+          transform: translateY(0px);
         }
 
-        /* Navbar */
-        .navbar {
-            background: linear-gradient(90deg, #0d6efd, #0a58ca);
+        50% {
+          transform: translateY(-20px);
         }
 
-        .navbar .nav-link {
-            color: #fff !important;
-            font-weight: 500;
-            transition: 0.3s;
+        100% {
+          transform: translateY(0px);
         }
+      }
 
-        .navbar .nav-link:hover {
-            color: #ffc107 !important;
-        }
+      /* Section Titles */
+      h2.section-title {
+        font-weight: 700;
+        position: relative;
+        display: inline-block;
+        padding-bottom: 10px;
+      }
 
-        /* Hero Section */
-        .hero {
-            height: 100vh;
-            background: linear-gradient(135deg, #0d6efd, #0a58);
-            color: white;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
+      h2.section-title::after {
+        content: "";
+        position: absolute;
+        width: 50%;
+        height: 3px;
+        left: 25%;
+        bottom: 0;
+        background: #0d6efd;
+        border-radius: 10px;
+      }
 
-        .car-emoji {
-            font-size: 6rem;
-            /* adjust size of emoji */
-            animation: float 3s ease-in-out infinite;
-        }
+      /* Cards */
+      .card {
+        /* Changed border: none; to a thin, light-colored border */
+        border: 1px solid rgba(0, 0, 0, 0.125);
+        /* Slightly increased border-radius for a smoother look */
+        border-radius: 10px;
+        /* Removed the shadow-sm class from HTML, and updated transition here */
+        transition: transform 0.3s, box-shadow 0.3s;
+      }
 
+      .card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+      }
 
-        @keyframes float {
-            0% {
-                transform: translateY(0px);
-            }
+      /* Custom class for service icons: makes them smaller and centers them within the wrapper */
+      .service-icon {
+        /* Set a max width to make the image smaller */
+        max-width: 100px;
+        /* The d-flex justify-content-center in HTML handles the horizontal centering */
+        height: auto;
+        /* Optional: add a little space below the icon inside the card */
+        margin-bottom: 10px;
+      }
 
-            50% {
-                transform: translateY(-20px);
-            }
+      /* About icons */
+      .about-icon {
+        font-size: 2rem;
+        color: #0d6efd;
+      }
 
-            100% {
-                transform: translateY(0px);
-            }
-        }
+      /* Contact form */
+      #contact input,
+      #contact textarea {
+        border-radius: 10px;
+      }
 
-        /* Section Titles */
-        h2.section-title {
-            font-weight: 700;
-            position: relative;
-            display: inline-block;
-            padding-bottom: 10px;
-        }
+      #contact button {
+        border-radius: 10px;
+        font-weight: 500;
+      }
 
-        h2.section-title::after {
-            content: "";
-            position: absolute;
-            width: 50%;
-            height: 3px;
-            left: 25%;
-            bottom: 0;
-            background: #0d6efd;
-            border-radius: 10px;
-        }
+      /* Footer */
+      footer {
+        background: #212529;
+      }
 
-        /* Cards */
-        .card {
-            border: none;
-            border-radius: 15px;
-            transition: transform .3s, box-shadow .3s;
-        }
+      footer a {
+        text-decoration: none;
+        transition: 0.3s;
+      }
 
-        .card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, .15);
-        }
-
-        .card img {
-            border-radius: 15px 15px 0 0;
-        }
-
-        /* About icons */
-        .about-icon {
-            font-size: 2rem;
-            color: #0d6efd;
-        }
-
-        /* Contact form */
-        #contact input,
-        #contact textarea {
-            border-radius: 10px;
-        }
-
-        #contact button {
-            border-radius: 10px;
-            font-weight: 500;
-        }
-
-        /* Footer */
-        footer {
-            background: #212529;
-        }
-
-        footer a {
-            text-decoration: none;
-            transition: 0.3s;
-        }
-
-        footer a:hover {
-            color: #ffc107 !important;
-        }
+      footer a:hover {
+        color: #ffc107 !important;
+      }
     </style>
-</head>
+  </head>
 
-<body>
-
+  <body>
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg fixed-top shadow">
-        <div class="container">
-            <a class="navbar-brand text-white fw-bold" href="{{ url_for('home') }}">
-                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="EasePark" style="height:40px;">
-            </a>
-            <button class="navbar-toggler bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
-                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="bi bi-list text-dark"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav mx-auto">
-                    <li class="nav-item"><a class="nav-link" href="{{ url_for('home') }}">Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#services">Services</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#about">About</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#contact">Contact</a></li>
-                </ul>
-                <div class="d-flex">
-                    <a href="{{ url_for('auth.register') }}" class="btn btn-warning btn-sm me-2">Register</a>
-                    <a href="{{ url_for('auth.login') }}" class="btn btn-light btn-sm">Login</a>
-                </div>
-            </div>
+      <div class="container">
+        <a class="navbar-brand text-white fw-bold" href="{{ url_for('home') }}">
+          <img
+            src="{{ url_for('static', filename='images/logo.png') }}"
+            alt="EasePark"
+            style="height: 40px"
+          />
+        </a>
+        <button
+          class="navbar-toggler bg-light"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarNav"
+          aria-controls="navbarNav"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span class="bi bi-list text-dark"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav mx-auto">
+            <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('home') }}">Home</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#services">Services</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#about">About</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#contact">Contact</a>
+            </li>
+          </ul>
+          <div class="d-flex">
+            <a
+              href="{{ url_for('auth.register') }}"
+              class="btn btn-warning btn-sm me-2"
+              >Register</a
+            >
+            <a href="{{ url_for('auth.login') }}" class="btn btn-light btn-sm"
+              >Login</a
+            >
+          </div>
         </div>
+      </div>
     </nav>
 
     <!-- Hero Section -->
     <section class="hero">
-        <div class="car-emoji">🚗</div>
-        <h1 class="fw-bold mt-4">Smart & Seamless Parking</h1>
-        <p class="lead mb-4">Hassle-Free Parking at Your Fingertips</p>
-        <a href="{{ url_for('auth.login') }}" class="btn btn-warning btn-lg shadow">Login / Sign In</a>
+      <div class="car-emoji">🚗</div>
+      <h1 class="fw-bold mt-4">Smart & Seamless Parking</h1>
+      <p class="lead mb-4">Hassle-Free Parking at Your Fingertips</p>
+      <a
+        href="{{ url_for('auth.login') }}"
+        class="btn btn-warning btn-lg shadow"
+        >Login / Sign In</a
+      >
     </section>
 
     <!-- Services -->
     <section class="container py-5" id="services">
-        <h2 class="section-title text-center mb-5">Our Core Services</h2>
-        <div class="row g-4">
-            <!-- Service Cards -->
-            <div class="col-md-6 col-lg-3">
-                <div class="card shadow-sm h-100">
-                    <img src="{{ url_for('static', filename='images/card1.png') }}" class="card-img-top" alt="">
-                    <div class="card-body">
-                        <h5 class="fw-bold">Real-Time Spot Availability</h5>
-                        <p>Instant updates to help you find and book spots nearby.</p>
-                    </div>
-                </div>
+      <h2 class="section-title text-center mb-5">Our Core Services</h2>
+      <div class="row g-4">
+        <div class="col-md-6 col-lg-3">
+          <div class="card shadow-sm h-100">
+            <div class="d-flex justify-content-center pt-4">
+              <img
+                src="{{ url_for('static', filename='images/card1.png') }}"
+                class="service-icon"
+                alt="Real-Time Spot Availability"
+              />
             </div>
-            <div class="col-md-6 col-lg-3">
-                <div class="card shadow-sm h-100">
-                    <img src="{{ url_for('static', filename='images/card2.png') }}" class="card-img-top" alt="">
-                    <div class="card-body">
-                        <h5 class="fw-bold">Easy Reservation System</h5>
-                        <p>Reserve in advance and avoid last-minute hassle.</p>
-                    </div>
-                </div>
+            <div class="card-body text-center">
+              <h5 class="fw-bold">Real-Time Spot Availability</h5>
+              <p>Instant updates to help you find and book spots nearby.</p>
             </div>
-            <div class="col-md-6 col-lg-3">
-                <div class="card shadow-sm h-100">
-                    <img src="{{ url_for('static', filename='images/card3.png') }}" class="card-img-top" alt="">
-                    <div class="card-body">
-                        <h5 class="fw-bold">Smart Price Estimator</h5>
-                        <p>Estimate cost based on location and duration.</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6 col-lg-3">
-                <div class="card shadow-sm h-100">
-                    <img src="{{ url_for('static', filename='images/card4.png') }}" class="card-img-top" alt="">
-                    <div class="card-body">
-                        <h5 class="fw-bold">Admin Dashboard</h5>
-                        <p>Manage bookings, monitor lots & generate reports.</p>
-                    </div>
-                </div>
-            </div>
+          </div>
         </div>
+        <div class="col-md-6 col-lg-3">
+          <div class="card shadow-sm h-100">
+            <div class="d-flex justify-content-center pt-4">
+              <img
+                src="{{ url_for('static', filename='images/card2.png') }}"
+                class="service-icon"
+                alt="Easy Reservation System"
+              />
+            </div>
+            <div class="card-body text-center">
+              <h5 class="fw-bold">Easy Reservation System</h5>
+              <p>Reserve in advance and avoid last-minute hassle.</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+          <div class="card shadow-sm h-100">
+            <div class="d-flex justify-content-center pt-4">
+              <img
+                src="{{ url_for('static', filename='images/card3.png') }}"
+                class="service-icon"
+                alt="Smart Price Estimator"
+              />
+            </div>
+            <div class="card-body text-center">
+              <h5 class="fw-bold">Smart Price Estimator</h5>
+              <p>Estimate cost based on location and duration.</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+          <div class="card shadow-sm h-100">
+            <div class="d-flex justify-content-center pt-4">
+              <img
+                src="{{ url_for('static', filename='images/card4.png') }}"
+                class="service-icon"
+                alt="Admin Dashboard"
+              />
+            </div>
+            <div class="card-body text-center">
+              <h5 class="fw-bold">Admin Dashboard</h5>
+              <p>Manage bookings, monitor lots & generate reports.</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- About -->
     <section class="bg-light py-5" id="about">
-        <div class="container text-center">
-            <h2 class="section-title mb-4">About EasePark</h2>
-            <p class="lead">EasePark is simplifying urban parking with smart, real-time solutions. What began as a
-                student
-                project is now evolving into a city-scale system.</p>
-            <div class="row mt-5 g-4">
-                <div class="col-md-3">
-                    <div class="about-icon mb-2">🚗</div>
-                    <h6>Smart Parking</h6>
-                </div>
-                <div class="col-md-3">
-                    <div class="about-icon mb-2">⚙️</div>
-                    <h6>Automation First</h6>
-                </div>
-                <div class="col-md-3">
-                    <div class="about-icon mb-2">🔐</div>
-                    <h6>Secure & Private</h6>
-                </div>
-                <div class="col-md-3">
-                    <div class="about-icon mb-2">🌍</div>
-                    <h6>Made for Cities</h6>
-                </div>
-            </div>
+      <div class="container text-center">
+        <h2 class="section-title mb-4">About EasePark</h2>
+        <p class="lead">
+          EasePark is simplifying urban parking with smart, real-time solutions.
+          What began as a student project is now evolving into a city-scale
+          system.
+        </p>
+        <div class="row mt-5 g-4">
+          <div class="col-md-3">
+            <div class="about-icon mb-2">🚗</div>
+            <h6>Smart Parking</h6>
+          </div>
+          <div class="col-md-3">
+            <div class="about-icon mb-2">⚙️</div>
+            <h6>Automation First</h6>
+          </div>
+          <div class="col-md-3">
+            <div class="about-icon mb-2">🔐</div>
+            <h6>Secure & Private</h6>
+          </div>
+          <div class="col-md-3">
+            <div class="about-icon mb-2">🌍</div>
+            <h6>Made for Cities</h6>
+          </div>
         </div>
+      </div>
     </section>
 
     <!-- Contact -->
     <section class="container py-5" id="contact">
-        <h2 class="section-title text-center mb-5">Contact Us</h2>
-        <div class="row g-4">
-            <div class="col-lg-5">
-                <p><i class="bi bi-telephone-fill me-2"></i> +91 9876543210</p>
-                <p><i class="bi bi-envelope-fill me-2"></i> support@easepark.com</p>
-                <p><i class="bi bi-geo-alt-fill me-2"></i> IIIT Bhopal Campus, India</p>
-            </div>
-            <div class="col-lg-7">
-                <form>
-                    <div class="row g-3">
-                        <div class="col-md-6"><input type="text" class="form-control" placeholder="First Name"></div>
-                        <div class="col-md-6"><input type="text" class="form-control" placeholder="Last Name"></div>
-                        <div class="col-md-6"><input type="email" class="form-control" placeholder="Email"></div>
-                        <div class="col-md-6"><input type="text" class="form-control" placeholder="Phone (optional)">
-                        </div>
-                        <div class="col-12"><textarea class="form-control" rows="4"
-                                placeholder="Your Message"></textarea></div>
-                        <div class="col-12"><button class="btn btn-primary w-100">Submit</button></div>
-                    </div>
-                </form>
-            </div>
+      <h2 class="section-title text-center mb-5">Contact Us</h2>
+      <div class="row g-4">
+        <div class="col-lg-5">
+          <p><i class="bi bi-telephone-fill me-2"></i> +91 9876543210</p>
+          <p><i class="bi bi-envelope-fill me-2"></i> support@easepark.com</p>
+          <p>
+            <i class="bi bi-geo-alt-fill me-2"></i> IIIT Bhopal Campus, India
+          </p>
         </div>
+        <div class="col-lg-7">
+          <form>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <input
+                  type="text"
+                  class="form-control"
+                  placeholder="First Name"
+                />
+              </div>
+              <div class="col-md-6">
+                <input
+                  type="text"
+                  class="form-control"
+                  placeholder="Last Name"
+                />
+              </div>
+              <div class="col-md-6">
+                <input type="email" class="form-control" placeholder="Email" />
+              </div>
+              <div class="col-md-6">
+                <input
+                  type="text"
+                  class="form-control"
+                  placeholder="Phone (optional)"
+                />
+              </div>
+              <div class="col-12">
+                <textarea
+                  class="form-control"
+                  rows="4"
+                  placeholder="Your Message"
+                ></textarea>
+              </div>
+              <div class="col-12">
+                <button class="btn btn-primary w-100">Submit</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
     </section>
 
     <!-- Footer -->
     <footer class="text-light pt-5 pb-3">
-        <div class="container">
-            <div class="row">
-                <div class="col-md-3">
-                    <h5 class="text-warning">EasePark</h5>
-                    <p>Smart parking solutions at your fingertips.</p>
-                </div>
-                <div class="col-md-3">
-                    <h6>Quick Links</h6><a href="#home" class="text-light d-block">Home</a><a href="#services"
-                        class="text-light d-block">Services</a><a href="#about" class="text-light d-block">About</a><a
-                        href="#contact" class="text-light d-block">Contact</a>
-                </div>
-                <div class="col-md-3">
-                    <h6>Contact</h6>
-                    <p>support@easepark.com</p>
-                    <p>+91 84588xxxxx</p>
-                </div>
-                <div class="col-md-3">
-                    <h6>Follow Us</h6><a href="#" class="text-warning fs-4 me-2"><i class="bi bi-linkedin"></i></a><a
-                        href="#" class="text-warning fs-4 me-2"><i class="bi bi-github"></i></a><a href="#"
-                        class="text-warning fs-4 me-2"><i class="bi bi-instagram"></i></a>
-                </div>
-            </div>
-            <hr>
-            <p class="text-center">&copy; 2025 EasePark. All Rights Reserved.</p>
+      <div class="container">
+        <div class="row">
+          <div class="col-md-3">
+            <h5 class="text-warning">EasePark</h5>
+            <p>Smart parking solutions at your fingertips.</p>
+          </div>
+          <div class="col-md-3">
+            <h6>Quick Links</h6>
+            <a href="#home" class="text-light d-block">Home</a
+            ><a href="#services" class="text-light d-block">Services</a
+            ><a href="#about" class="text-light d-block">About</a
+            ><a href="#contact" class="text-light d-block">Contact</a>
+          </div>
+          <div class="col-md-3">
+            <h6>Contact</h6>
+            <p>support@easepark.com</p>
+            <p>+91 84588xxxxx</p>
+          </div>
+          <div class="col-md-3">
+            <h6>Follow Us</h6>
+            <a href="#" class="text-warning fs-4 me-2"
+              ><i class="bi bi-linkedin"></i></a
+            ><a href="#" class="text-warning fs-4 me-2"
+              ><i class="bi bi-github"></i></a
+            ><a href="#" class="text-warning fs-4 me-2"
+              ><i class="bi bi-instagram"></i
+            ></a>
+          </div>
         </div>
+        <hr />
+        <p class="text-center">&copy; 2025 EasePark. All Rights Reserved.</p>
+      </div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-
+  </body>
 </html>
