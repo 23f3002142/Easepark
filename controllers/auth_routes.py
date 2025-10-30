@@ -72,12 +72,12 @@ def google_authorize():
     # Find user by email
     user = Users.query.filter_by(email=user_info['email']).first()
 
-    # If user doesn't exist, create a new one
+    # creating a new user 
     if not user:
-        # Check if username from email already exists
+        # Checking if username exist 
         username = user_info['email'].split('@')[0]
         if Users.query.filter_by(username=username).first():
-            username = user_info['name'] # Use full name if username exists
+            username = user_info['name'] 
 
         user = Users(
             email=user_info['email'], # type: ignore
@@ -90,10 +90,10 @@ def google_authorize():
         db.session.commit()
         flash('Account created successfully via Google!', 'success')
     
-    # Log in the user
+
     login_user(user)
     
-    # Redirect based on role
+
     if user.role == 'admin':
         return redirect(url_for('admin.dashboard'))
     else:

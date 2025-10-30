@@ -94,7 +94,7 @@ def edit_lot(lot_id):
         lot.price = request.form['price']
         lot.address = request.form['address']
         lot.pin_code = request.form['pin_code']
-        lot.latitude = request.form['latitude']  # <-- NEW
+        lot.latitude = request.form['latitude']  
         lot.longitude = request.form['longitude']
         new_max_spots =int(request.form['max_spots'])
         current_spots_count = len(lot.spots)
@@ -170,14 +170,16 @@ def view_spot(spot_id):
         )
 
         if reservation:
-            booking_time = reservation.booking_timestamp
+            IST = ZoneInfo("Asia/Kolkata")
+            UTC = ZoneInfo("UTC")
+            booking_time = reservation.booking_timestamp.replace(tzinfo=UTC).astimezone(IST)
             duration = (now - booking_time).total_seconds() / 3600
             duration = max(1, int(duration))
             estimated_cost = duration * reservation.cost_per_unit_time
         else:
             estimated_cost = None
 
-        return render_template('occspot.html', spot=spot, reservation=reservation, estimated_cost=estimated_cost)
+        return render_template('occspot.html', spot=spot, reservation=reservation, estimated_cost=estimated_cost,booking_time=booking_time)
 
     return render_template('view_spot.html', spot=spot)
 
@@ -227,10 +229,10 @@ def user_booking_history(user_id):
         else:
             res.releasing_timestamp_ist = None
 
-     # Summary calculations
+
     total_amount_paid = sum(res.total_cost or 0 for res in history)
     
-    # Total duration parked (sum of all completed bookings)
+
     total_duration_hours = 0
     for res in history:
         if res.booking_timestamp_ist and res.releasing_timestamp_ist:
@@ -261,12 +263,12 @@ def user_booking_history(user_id):
 @admin_blueprint.route('/summary')
 @login_required
 def admin_summary():
-    # first chart for available to occupancy ratio
+    # first chart
     total_spots = ParkingSpot.query.count()
     occupied_spots = ParkingSpot.query.filter(ParkingSpot.status != 'A').count()
     available_spots = total_spots - occupied_spots
 
-    # second chart for monthly booking trend (past year)
+    # second chart 
     today = datetime.utcnow().date()
     one_year_ago = today - timedelta(days=365)
 
@@ -286,11 +288,11 @@ def admin_summary():
 
     for month_str, count in monthly_data:
         month_dt = datetime.strptime(month_str, "%Y-%m")
-        month_label = month_dt.strftime("%b %Y")  # Example: Jan 2025
+        month_label = month_dt.strftime("%b %Y")  
         months.append(month_label)
         bookings_per_month.append(count)
 
-    # third chart: new user registrations per month (past 12 months)
+    # third chart
     today = datetime.today()
     one_year_ago = today.replace(year=today.year - 1)
 
@@ -308,7 +310,7 @@ def admin_summary():
     labels = [row.month for row in registration_stats]
     data = [row.Users_count for row in registration_stats]
 
-    # fourth chart: top 10 most used parking lots
+    # fourth chart
     top_lots = (
         db.session.query(
             ParkingLot.parking_name,
@@ -325,7 +327,7 @@ def admin_summary():
     labels1 = [row.parking_name for row in top_lots]
     data1 = [row.usage_count for row in top_lots]
 
-    # fifth chart: average parking time (hours) per lot
+    # fifth chart
     avg_parking_time = (
         db.session.query(
             ParkingLot.parking_name,

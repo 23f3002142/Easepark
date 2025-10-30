@@ -24,13 +24,13 @@
             </div>
             <div class="mb-3">
                 <label>Parking Time:</label>
-                <input type="text" value="{{ reservation.booking_timestamp.strftime('%d %b %Y, %I:%M %p') }}"
+                <input type="text" value="{{ booking_time.strftime('%d %b %Y, %I:%M %p') }}"
                     readonly><br>
             </div>
             <div class="mb-3">
                 <label>Releasing Time:</label>
                 <input type="text"
-                    value="{{ (datetime.utcnow() + timedelta(hours=5, minutes=30)).strftime('%d %b %Y, %I:%M %p') }}"
+                    value="{{ current_time_ist }}"
                     readonly><br>
             </div>
             <div class="mb-3">

@@ -3,7 +3,7 @@ from flask import Blueprint,render_template,flash,request,url_for,abort,redirect
 from flask_login import login_required,current_user
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
-from models.user_model import Users,ParkingLot,ParkingSpot,Reservation,db
+from models.user_model import Users,ParkingLot,ParkingSpot,Reservation,db,Payment
 from datetime import datetime , timedelta
 from collections import defaultdict
 from zoneinfo import ZoneInfo
@@ -18,8 +18,13 @@ import smtplib
 import io
 import os
 import random
+import razorpay
 
 user_blueprint=Blueprint('user',__name__,url_prefix='/dashboard')
+razorpay_client = razorpay.Client(
+    auth=(os.environ.get("RAZORPAY_KEY_ID"), os.environ.get("RAZORPAY_KEY_SECRET"))
+)
+
 
 @user_blueprint.route('/user')
 @login_required
@@ -29,7 +34,13 @@ def dashboard():
     if current_user.role != 'user':
         return "Unauthorised"
     else:
-        # Get all active reservations of the user
+        payment_status = request.args.get('payment')
+        if payment_status == 'cancelled':
+            flash("Payment was cancelled. Your spot has not been released.", "warning")
+        elif payment_status == 'failed':
+            flash("Payment failed. Please try again. Your spot has not been released.", "danger")
+
+
         active_reservations = Reservation.query.filter_by(user_id=current_user.id, status='active').all()
 
         active_bookings = []
@@ -37,8 +48,9 @@ def dashboard():
             lot = ParkingLot.query.get(res.spot.lot_id)
             if lot is None:
                 abort(404)
-
-            local_time = res.booking_timestamp.astimezone(ZoneInfo("Asia/Kolkata"))
+            IST = ZoneInfo("Asia/Kolkata")
+            UTC = ZoneInfo("UTC")
+            local_time = res.booking_timestamp.replace(tzinfo=UTC).astimezone(IST)
             booking_date = local_time.strftime('%d %b %Y')
             time_range = local_time.strftime('%I:%M %p') + " - Now"
 
@@ -49,10 +61,10 @@ def dashboard():
                 "time_range": time_range
             })
 
-        # This block should NOT be inside the for loop
+
         user_pin = current_user.pin_code
 
-        # Get all lots matching user's pin code
+
         lots = ParkingLot.query.filter_by(pin_code=user_pin,is_active=True).all()
 
         available_lots = []
@@ -77,14 +89,14 @@ def dashboard():
         for res in history:
             res.booking_timestamp_ist = res.booking_timestamp.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Kolkata"))
 
-        # Prepare booking counts by date
+ 
         booking_counts = defaultdict(int)
         for res in history:
             if res.booking_timestamp_ist:
                 date_str = res.booking_timestamp_ist.strftime('%d %b')
                 booking_counts[date_str] += 1
 
-        # Sort by date
+
         sorted_dates = sorted(booking_counts.items(), key=lambda x: datetime.strptime(x[0], '%d %b'))
         chart_labels = [d[0] for d in sorted_dates]
         chart_data = [d[1] for d in sorted_dates]
@@ -170,7 +182,7 @@ def book_map():
 def book_spot():
     search_query = request.args.get('search', '')
     page = request.args.get('page', 1, type=int)
-    per_page = 3  # adjust as needed
+    per_page = 3  
 
     lots_query = ParkingLot.query.filter(
         ParkingLot.is_active == True  # type: ignore
@@ -237,7 +249,6 @@ def reserve_spot(lot_id):
         return redirect(url_for('user.book_spot'))
 
     if request.method == 'GET':
-        # Check for an existing pending reservation
         reservation = (
             Reservation.query.join(ParkingSpot)
             .filter(
@@ -251,7 +262,6 @@ def reserve_spot(lot_id):
 
 
         if reservation:
-            # Generate new OTP for resend
             otp = generate_otp()
             reservation.otp_secret = otp
             db.session.commit()
@@ -460,79 +470,43 @@ def release_spot(reservation_id):
             Reservation.status == 'active',
             Reservation.status == 'pending_release'
         )
-    ).first()
+    ).first_or_404()
 
-    if reservation is None:
-        abort(404)
-
-    spot = ParkingSpot.query.filter_by(id=reservation.spot_id).first()
-    if spot is None:
-        abort(404)
-
-    lot = ParkingLot.query.filter_by(id=spot.lot_id).first()
-    if lot is None:
-        abort(404)
-
+    spot = ParkingSpot.query.filter_by(id=reservation.spot_id).first_or_404()
+    lot = ParkingLot.query.filter_by(id=spot.lot_id).first_or_404()
     IST = ZoneInfo("Asia/Kolkata")
+    UTC = ZoneInfo("UTC")
+    current_time_ist = datetime.now(IST).strftime('%d %b %Y, %I:%M %p')
+    now = datetime.now(IST)
+    booking_time = reservation.booking_timestamp.replace(tzinfo=UTC).astimezone(IST)
+    duration = max(1, int((now - booking_time).total_seconds() / 3600))
+    estimated_cost = duration * reservation.cost_per_unit_time
 
-    if request.method == 'GET':
-        now = datetime.now(IST)
-
-        # convert from UTC → IST
-        booking_time = reservation.booking_timestamp.astimezone(IST)
-
-        duration = (now - booking_time).total_seconds() / 3600
-        duration = max(1, int(duration))  # at least 1 hour
-        estimated_cost = duration * reservation.cost_per_unit_time
-    else:
-        estimated_cost = None
-
+    # When user clicks "Release", initiate payment
     if request.method == 'POST':
-        otp_entered = request.form.get("otp")
-
-        if otp_entered:  # OTP verification step
-            if reservation.otp_secret == otp_entered:
-                release_time = datetime.now(IST)
-                booking_time = reservation.booking_timestamp.astimezone(IST)
-
-                duration = (release_time - booking_time).total_seconds() / 3600
-                duration = max(1, int(duration))
-
-                total_cost = duration * reservation.cost_per_unit_time
-
-                # Save in UTC (DB-friendly)
-                reservation.releasing_timestamp = datetime.utcnow()
-                reservation.total_cost = total_cost
-                reservation.status = 'completed'
-                reservation.otp_verified = True
-
-                spot.status = 'A'
-                db.session.commit()
-
-                try:
-                    # ✅ Use Brevo API instead of SMTP
-                    send_receipt_email(current_user, reservation, lot, spot)
-                    flash("Spot released successfully. Receipt has been emailed to you.", "success")
-                except Exception as e:
-                    # Catch unexpected API errors so Render doesn’t timeout
-                    print("Error sending receipt email:", e)
-                    flash("Spot released successfully, but receipt email failed to send.", "warning")
-
-                return redirect(url_for('user.dashboard'))
-            else:
-                flash("Invalid OTP, please try again.", "danger")
-                return render_template("verify_otp.html", lot=lot, spot=spot,user=current_user)
-
-        # Step 1: Generate and send OTP for release
-        otp = str(random.randint(100000, 999999))
-        reservation.otp_secret = otp
-        reservation.otp_required = True
-        reservation.status = "pending_release"
-        db.session.commit()
-
-        send_otp_email(current_user.email, otp)
-        flash("OTP sent to your registered email. Please verify to release.", "info")
-        return render_template("verify_otp.html", lot=lot, spot=spot,user=current_user)
+        amount_paise = int(estimated_cost * 100)
+        order = razorpay_client.order.create(dict(
+            amount=amount_paise,
+            currency='INR',
+            payment_capture='1'
+        ))
+        success_url = url_for('user.payment_success', _external=True)
+        
+        return render_template(
+            'payment.html',
+            order_id=order['id'],
+            key_id=os.environ.get("RAZORPAY_KEY_ID"),
+            amount=estimated_cost,
+            amount_paise=amount_paise,
+            reservation=reservation,
+            user_name=current_user.full_name or "",
+            user_email=current_user.email or "",
+            user_phone=current_user.phone_number or "",
+            lot_name=lot.parking_name,
+            duration=duration,
+            payment_success_url=success_url,
+            user=current_user
+        )
 
     return render_template(
         'release_spot.html',
@@ -541,9 +515,63 @@ def release_spot(reservation_id):
         lot=lot,
         datetime=datetime,
         timedelta=timedelta,
+        current_time_ist=current_time_ist,
         estimated_cost=estimated_cost,
+        booking_time=booking_time,
         user=current_user
     )
+
+@user_blueprint.route('/payment_success', methods=['GET'])
+@login_required
+def payment_success():
+    payment_id = request.args.get('payment_id')
+    order_id = request.args.get('order_id')
+    reservation_id = request.args.get('reservation_id')
+
+    if not all([payment_id, order_id, reservation_id]):
+        flash("Payment info missing!", "danger")
+        return redirect(url_for('user.dashboard'))
+
+    reservation = Reservation.query.get_or_404(reservation_id)
+    IST = ZoneInfo("Asia/Kolkata")
+
+    release_time = datetime.now(IST)
+    booking_time = reservation.booking_timestamp.astimezone(IST)
+    duration = max(1, int((release_time - booking_time).total_seconds() / 3600))
+    total_cost = duration * reservation.cost_per_unit_time
+
+    # Update reservation and spot
+    reservation.releasing_timestamp = datetime.utcnow()
+    reservation.total_cost = total_cost
+    reservation.status = 'completed'
+    reservation.otp_required = False
+    reservation.otp_verified = False
+    reservation.otp_secret = None
+    reservation.spot.status = 'A'
+
+    # Record payment
+    payment = Payment(
+        reservation_id=reservation.id,
+        razorpay_payment_id=payment_id,
+        razorpay_order_id=order_id,
+        amount=total_cost,
+        status='success'
+    )
+    db.session.add(payment)
+    db.session.commit()
+
+    # Send receipt
+    try:
+        lot = ParkingLot.query.get(reservation.spot.lot_id)
+        spot = ParkingSpot.query.get(reservation.spot_id)
+        send_receipt_email(current_user, reservation, lot, spot)
+        flash("Spot released successfully. Receipt emailed to you.", "success")
+    except Exception as e:
+        print("Error sending receipt email:", e)
+        flash("Spot released successfully, but email failed.", "warning")
+
+    return redirect(url_for('user.dashboard'))
+
 
 
 @user_blueprint.route("/receipt/<int:reservation_id>")
@@ -583,7 +611,6 @@ def download_receipt(reservation_id):
     p.save()
     pdf_buffer.seek(0)
 
-    # Return response as downloadable PDF
     response = make_response(pdf_buffer.read())
     response.headers['Content-Type'] = 'application/pdf'
     response.headers['Content-Disposition'] = f'attachment; filename=receipt_{reservation.id}.pdf'
@@ -604,14 +631,14 @@ def user_summary():
     user = Users.query.get_or_404(user.id)
     # pagination
     page = request.args.get('page', 1, type=int)
-    per_page = 5   # show 5 bookings per page
+    per_page = 5   
     history_pagination = Reservation.query.filter_by(user_id=user.id) \
         .order_by(Reservation.booking_timestamp.desc()) \
         .paginate(page=page, per_page=per_page, error_out=False)
 
     history = history_pagination.items
 
-    # Convert timestamps to IST
+
     for res in history:
         if res.booking_timestamp:
             res.booking_timestamp_ist = res.booking_timestamp.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Kolkata"))
@@ -634,10 +661,9 @@ def user_summary():
             res.releasing_timestamp_ist = res.releasing_timestamp.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Kolkata"))
         else:
             res.releasing_timestamp_ist = None
-    # Summary calculations
+
     total_amount_paid = sum(res.total_cost or 0 for res in all)
 
-    # Total duration parked (sum of all completed bookings)
     total_duration_hours = 0
     for res in all:
         if res.booking_timestamp_ist and res.releasing_timestamp_ist:
@@ -649,19 +675,16 @@ def user_summary():
     first_booking = all[-1].booking_timestamp_ist if all else None
     latest_booking = all[0].booking_timestamp_ist if all else None
 
-    # Prepare booking counts by date
     booking_counts = defaultdict(int)
     for res in all:
         if res.booking_timestamp_ist:
             date_str = res.booking_timestamp_ist.strftime('%d %b')
             booking_counts[date_str] += 1
 
-    # Sort by date
     sorted_dates = sorted(booking_counts.items(), key=lambda x: datetime.strptime(x[0], '%d %b'))
     chart_labels = [d[0] for d in sorted_dates]
     chart_data = [d[1] for d in sorted_dates]
 
-    # Duration buckets
     duration_buckets = {
         '<3 hrs': 0,
         '3–6 hrs': 0,
@@ -692,7 +715,6 @@ def user_summary():
             else:
                 duration_buckets['>2 days'] += 1
 
-    # Chart 3: booking durations vs cost
     booking_labels = []
     duration_values = []
     cost_values = []

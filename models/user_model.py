@@ -64,3 +64,14 @@ class Reservation(UserMixin, db.Model):
 
     # for QR-based check-in/out (future scope)
     qr_code = db.Column(db.Text, nullable=True)
+
+class Payment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    reservation_id = db.Column(db.Integer, db.ForeignKey('reservation.id'), nullable=False)
+    razorpay_payment_id = db.Column(db.String(100), nullable=False)
+    razorpay_order_id = db.Column(db.String(100), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    status = db.Column(db.String(20), default='success')  # success / failed
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    reservation = db.relationship('Reservation', backref='payment', lazy=True)
