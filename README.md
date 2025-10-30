@@ -25,11 +25,11 @@ EasePark is a **Flask-based Vehicle Parking Management System** designed to make
 
 ## 📸 Gallery
 
-| Home Page | User Dashboard | Booking via Map |
+| Home Page | User Dashboard |  Booking History |
 |------------|----------------|-----------------|
-| ![Home Page](assets/Home_page.jpg) | ![Dashboard](assets/User_dashboard.png) | ![Map Booking](assets/Booking_through_map.jpg) |
-| Booking History | User Statistics | Admin Lot Management |
-| ![Booking History](assets/Booking_history.png) | ![User Summary](assets/User_summary_section.png) | ![Admin Dashboard](assets/Admin_dashboard.png) |
+| ![Home Page](assets/Home_page.png) | ![Dashboard](assets/User_dashboard.png) | ![Booking History](assets/Booking_history.png) |
+| Booking via Map | User Statistics | Admin Lot Management |
+| ![Map Booking](assets/Booking_through_map.png) | ![User Summary](assets/User_summary_section.png) | ![Admin Dashboard](assets/Admin_dashboard.png) |
 
 ---
 
@@ -91,16 +91,16 @@ EasePark is a **Flask-based Vehicle Parking Management System** designed to make
 git clone https://github.com/your-username/EasePark.git
 cd EasePark
 
-3️⃣ Create Virtual Environment
+### 3️⃣ Create Virtual Environment
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
 # or
 venv\Scripts\activate     # Windows
 
-4️⃣ Install Dependencies
+### 4️⃣ Install Dependencies
 pip install -r requirements.txt
 
-5️⃣ Configure .env File
+### 5️⃣ Configure .env File
 SECRET_KEY=your_secret_key
 SQLALCHEMY_DATABASE_URI=postgresql://user:password@localhost:5432/easepark_db
 REDIS_URL=redis://localhost:6379/0
@@ -114,15 +114,17 @@ MAIL_USERNAME=your_email@example.com
 MAIL_PASSWORD=your_brevo_smtp_key
 MAIL_DEFAULT_SENDER=your_email@example.com
 
-6️⃣ Initialize Database
+### 6️⃣ Initialize Database
 flask db init
 flask db migrate -m "Initial setup"
 flask db upgrade
 
-7️⃣ Run Application
+### 7️⃣ Run Application
 flask run
 
 Visit → http://127.0.0.1:5000
+
+---
 
 ⚙️ Test Accounts
 | Role  | Email                                           | Password |
@@ -137,6 +139,7 @@ Visit → http://127.0.0.1:5000
 | Mastercard | 5123 4567 8901 2345 | 12/29 | 123 | ✅ Success |
 | Visa       | 4111 1111 1111 1112 | 12/29 | 123 | ❌ Failure |
 
+---
 
 📦 Project Structure
 EasePark/
@@ -161,6 +164,7 @@ EasePark/
 │   └── img/
 └── migrations/
 
+---
 
 ☁ Deployment on Render
 
@@ -174,6 +178,7 @@ Add all environment variables.
 
 Deploy — Render will automatically build and start your Flask app.
 
+---
 
 📄 License
 
