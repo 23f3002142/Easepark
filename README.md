@@ -1,6 +1,10 @@
-<div align="center">
-  <img src="assets/logo.png" alt="EasePark Logo" width="120" />
-</div>
+<table align="center">
+  <tr>
+    <td align="center" bgcolor="white" style="border-radius:10px;">
+      <img src="assets/logo.png" alt="EasePark Logo" width="120" />
+    </td>
+  </tr>
+</table>
 
 <h1 align="center">EasePark 🚗 – Vehicle Parking Management System</h1>
 
@@ -67,12 +71,14 @@ EasePark is a **Flask-based Vehicle Parking Management System** designed to make
 ---
 
 ## 🧩 System Architecture
+```bash
 [User] → [Browser] → [Render Host] → [Flask App] → [PostgreSQL]
 │
 ├─> [Redis]
 ├─> [Razorpay API]
 ├─> [Brevo SMTP]
 └─> [Google OAuth]
+```
 
 ---
 
@@ -90,17 +96,23 @@ EasePark is a **Flask-based Vehicle Parking Management System** designed to make
 ```bash
 git clone https://github.com/your-username/EasePark.git
 cd EasePark
+```
 
 ### 3️⃣ Create Virtual Environment
+```bash
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
 # or
 venv\Scripts\activate     # Windows
+```
 
 ### 4️⃣ Install Dependencies
+```bash
 pip install -r requirements.txt
+```
 
 ### 5️⃣ Configure .env File
+```bash
 SECRET_KEY=your_secret_key
 SQLALCHEMY_DATABASE_URI=postgresql://user:password@localhost:5432/easepark_db
 REDIS_URL=redis://localhost:6379/0
@@ -113,26 +125,34 @@ MAIL_PORT=587
 MAIL_USERNAME=your_email@example.com
 MAIL_PASSWORD=your_brevo_smtp_key
 MAIL_DEFAULT_SENDER=your_email@example.com
+```
 
 ### 6️⃣ Initialize Database
+```bash
 flask db init
 flask db migrate -m "Initial setup"
 flask db upgrade
+```
 
 ### 7️⃣ Run Application
+```bash
 flask run
-
+```
+```
 Visit → http://127.0.0.1:5000
-
+```
 ---
 
-⚙️ Test Accounts
+## ⚙️ Test Accounts
+
 | Role  | Email                                           | Password |
 | ----- | ----------------------------------------------- | -------- |
 | Admin | [admin@gmail.com](mailto:admin@easepark.com)    | admin123 |
 | User  | [user@example.com](mailto:user@example.com)     | user123  |
 
-💳 Razorpay Test Cards
+---
+
+## 💳 Razorpay Test Cards
 | Type       | Card Number         | Exp   | CVV | Result    |
 | ---------- | ------------------- | ----- | --- | --------- |
 | Visa       | 4111 1111 1111 1111 | 12/29 | 123 | ✅ Success |
@@ -141,7 +161,8 @@ Visit → http://127.0.0.1:5000
 
 ---
 
-📦 Project Structure
+## 📦 Project Structure
+```
 EasePark/
 ├── app.py
 ├── requirements.txt
@@ -163,24 +184,25 @@ EasePark/
 │   ├── js/
 │   └── img/
 └── migrations/
+```
 
 ---
 
-☁ Deployment on Render
+## ☁ Deployment on Render
 
-Connect your GitHub repo to Render.
+- Connect your GitHub repo to Render.
 
-Create a Web Service and select “Docker”.
+- Create a Web Service and select “Docker”.
 
-Add PostgreSQL and Redis services.
+- Add PostgreSQL and Redis services.
 
-Add all environment variables.
+- Add all environment variables.
 
-Deploy — Render will automatically build and start your Flask app.
+- Deploy — Render will automatically build and start your Flask app.
 
 ---
 
-📄 License
+## 📄 License
 
 This project is licensed under the MIT License.
 See LICENSE
