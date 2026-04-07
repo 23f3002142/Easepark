@@ -9,5 +9,9 @@ instance/
 *.db
 *.sqlite3
 .env
-
+*.md
 seed_parking_data.py
+
+# Frontend
+easepark-frontend/node_modules/
+easepark-frontend/dist/

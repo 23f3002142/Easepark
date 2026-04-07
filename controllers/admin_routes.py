@@ -97,7 +97,7 @@ def edit_lot(lot_id):
         lot.latitude = request.form['latitude']  
         lot.longitude = request.form['longitude']
         new_max_spots =int(request.form['max_spots'])
-        current_spots_count = len(lot.spots)
+        current_spots_count = lot.spots.count()
 
         # If increasing spots
         if new_max_spots > current_spots_count:
@@ -109,7 +109,7 @@ def edit_lot(lot_id):
                 )
                 db.session.add(new_spot)
         elif new_max_spots < current_spots_count:
-            all_spots = list(reversed(lot.spots))
+            all_spots = list(lot.spots.order_by(ParkingSpot.id.desc()).all())
             spots_to_remove_count = current_spots_count - new_max_spots
             extra_spots = all_spots[:spots_to_remove_count]
 
@@ -136,11 +136,10 @@ def delete_lot(lot_id):
     lot=ParkingLot.query.filter_by(id=lot_id).first()
     if lot is None:
         abort(404)
-    for spot in lot.spots:
-        for reservation in spot.reservations:
-            if reservation.status == 'active':
-                flash("Cannot delete: One or more spots are currently booked.", "danger")
-                return redirect(url_for("admin.dashboard"))
+    for spot in lot.spots.all():
+        for reservation in spot.reservations.filter_by(status='active').all():
+            flash("Cannot delete: One or more spots are currently booked.", "danger")
+            return redirect(url_for("admin.dashboard"))
 
     # No active bookings — delete the lot
     lot.is_active = False
