@@ -63,10 +63,28 @@ def dashboard():
         .all()
     )
 
+    # Also fetch all spots grouped by lot for the dashboard visualization
+    all_spots = (
+        ParkingSpot.query
+        .filter(ParkingSpot.lot_id.in_([lot.id for lot, _, _ in lots]))
+        .order_by(ParkingSpot.lot_id, ParkingSpot.spot_number.asc())
+        .all()
+    )
+    spots_by_lot = {}
+    for s in all_spots:
+        spots_by_lot.setdefault(s.lot_id, []).append({
+            "id": s.id,
+            "spot_number": s.spot_number,
+            "status": s.status,
+        })
+
     lots_data = []
     for lot, total, occupied in lots:
         total = total or 0
         occupied = occupied or 0
+        lot_spots = spots_by_lot.get(lot.id, [])
+        # Sort: available first, then occupied
+        lot_spots.sort(key=lambda x: (0 if x['status'] == 'A' else 1, x['spot_number']))
         lots_data.append({
             "id": lot.id,
             "parking_name": lot.parking_name,
@@ -79,6 +97,7 @@ def dashboard():
             "total_spots": total,
             "occupied_spots": occupied,
             "available_spots": total - occupied,
+            "spots": lot_spots,
         })
 
     return jsonify({"lots": lots_data}), 200

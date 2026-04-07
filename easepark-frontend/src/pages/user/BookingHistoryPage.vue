@@ -4,8 +4,9 @@ import { RouterLink } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import PaginationBar from '@/components/PaginationBar.vue'
-import { getHistory, getReceiptUrl } from '@/api/user.api'
+import { getHistory, getReceiptUrl, downloadHistoryCsv } from '@/api/user.api'
 import type { Reservation, Pagination } from '@/types/parking'
+import { Download } from 'lucide-vue-next'
 
 const history = ref<Reservation[]>([])
 const pagination = ref<Pagination>({ page: 1, per_page: 7, total_pages: 0, total_items: 0 })
@@ -38,6 +39,18 @@ function onPageChange(p: number) {
   fetchHistory(p)
 }
 
+const csvLoading = ref(false)
+async function handleCsvDownload() {
+  csvLoading.value = true
+  try {
+    await downloadHistoryCsv()
+  } catch {
+    error.value = 'Failed to download CSV'
+  } finally {
+    csvLoading.value = false
+  }
+}
+
 function statusColor(status: string) {
   if (status === 'active') return 'bg-green-100 text-green-700 border-green-300'
   if (status === 'pending') return 'bg-yellow-100 text-yellow-700 border-yellow-300'
@@ -49,7 +62,17 @@ function statusColor(status: string) {
 
 <template>
   <DashboardLayout>
-    <PageHeader title="Booking History" subtitle="View all your past and current bookings" />
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 gap-4">
+      <PageHeader title="Booking History" subtitle="View all your past and current bookings" />
+      <button
+        v-if="history.length"
+        @click="handleCsvDownload"
+        :disabled="csvLoading"
+        class="inline-flex items-center gap-2 px-5 py-2.5 bg-black text-white font-bold uppercase tracking-wider text-xs hover:bg-gray-800 disabled:bg-gray-400 transition-colors self-start"
+      >
+        <Download :size="14" /> {{ csvLoading ? 'Downloading...' : 'Download CSV' }}
+      </button>
+    </div>
 
     <div v-if="loading" class="flex items-center justify-center py-20">
       <div class="w-8 h-8 border-4 border-black border-t-transparent animate-spin"></div>

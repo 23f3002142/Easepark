@@ -16,6 +16,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 import io
+import csv
 import os
 import random
 import razorpay
@@ -303,7 +304,7 @@ def get_nearby_lots():
     limit = request.args.get('limit', 5, type=int)
 
     if lat is None or lng is None:
-        return jsonify({"error": "lat and lng query params required"}), 400
+        return jsonify({"error": "Latitude and longitude query parameters are required"}), 400
 
     # Get all active lots with free spot counts in one query
     spot_counts = (
@@ -528,6 +529,49 @@ def booking_history():
     }), 200
 
 
+# ─── Booking History CSV Download ───
+@api_user_blueprint.route('/history/csv', methods=['GET'])
+@jwt_required()
+@limiter.limit("5 per 1 minute")
+def booking_history_csv():
+    user = get_current_user()
+    if not user or user.role != 'user':
+        return jsonify({"error": "Unauthorized"}), 403
+
+    reservations = (
+        Reservation.query
+        .options(joinedload(Reservation.spot).joinedload(ParkingSpot.lot))
+        .filter_by(user_id=user.id)
+        .order_by(Reservation.booking_timestamp.desc())
+        .all()
+    )
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Spot', 'Lot Name', 'Vehicle', 'Booking Time', 'Release Time', 'Cost (₹)', 'Status'])
+
+    for res in reservations:
+        booking_ist = res.booking_timestamp.replace(tzinfo=UTC).astimezone(IST)
+        releasing_ist = res.releasing_timestamp.replace(tzinfo=UTC).astimezone(IST) if res.releasing_timestamp else None
+        spot = res.spot
+        lot = spot.lot if spot else None
+
+        writer.writerow([
+            spot.spot_number if spot else '?',
+            lot.parking_name if lot else 'Unknown',
+            res.vehicle_number or 'N/A',
+            booking_ist.strftime('%d %b %Y %I:%M %p'),
+            releasing_ist.strftime('%d %b %Y %I:%M %p') if releasing_ist else '—',
+            res.total_cost if res.total_cost is not None else '—',
+            res.status,
+        ])
+
+    response = make_response(output.getvalue())
+    response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+    response.headers['Content-Disposition'] = f'attachment; filename=easepark_bookings_{user.username}.csv'
+    return response
+
+
 # ─── Cancel Booking ───
 @api_user_blueprint.route('/cancel/<int:reservation_id>', methods=['POST'])
 @jwt_required()
@@ -732,6 +776,65 @@ def cancel_release(reservation_id):
     reservation.otp_verified = False
     db.session.commit()
     return jsonify({"message": "Release cancelled. Booking is still active."}), 200
+
+
+# ─── Release Spot (without Razorpay — password-confirmed only, beta) ───
+@api_user_blueprint.route('/release/<int:reservation_id>/confirm-free', methods=['POST'])
+@jwt_required()
+@limiter.limit("10 per 3 minute")
+def release_spot_free(reservation_id):
+    """Release spot without Razorpay payment — just mark completed with calculated cost."""
+    user = get_current_user()
+    if not user or user.role != 'user':
+        return jsonify({"error": "Unauthorized"}), 403
+
+    reservation = (
+        Reservation.query
+        .options(joinedload(Reservation.spot).joinedload(ParkingSpot.lot))
+        .filter(
+            Reservation.id == reservation_id,
+            Reservation.user_id == user.id,
+            Reservation.status == 'pending_release',
+            Reservation.otp_verified == True,
+        )
+        .first()
+    )
+
+    if not reservation:
+        return jsonify({"error": "Reservation not verified for release. Confirm via OTP or password first."}), 403
+
+    spot = reservation.spot
+    lot = spot.lot if spot else None
+
+    now = datetime.now(IST)
+    booking_time = reservation.booking_timestamp.replace(tzinfo=UTC).astimezone(IST)
+    duration = max(1, int((now - booking_time).total_seconds() / 3600))
+    total_cost = duration * reservation.cost_per_unit_time
+
+    reservation.releasing_timestamp = datetime.utcnow()
+    reservation.total_cost = total_cost
+    reservation.status = 'completed'
+    reservation.otp_required = False
+    reservation.otp_verified = False
+    reservation.otp_secret = None
+    if spot:
+        spot.status = 'A'
+
+    db.session.commit()
+    _invalidate_user_cache(user.id)
+
+    # Send receipt email
+    try:
+        if lot and spot:
+            send_receipt_email(user, reservation, lot, spot)
+    except Exception as e:
+        print("Error sending receipt email:", e)
+
+    return jsonify({
+        "message": "Spot released successfully (payment skipped — beta).",
+        "total_cost": total_cost,
+        "duration_hours": duration,
+    }), 200
 
 
 @api_user_blueprint.route('/release/<int:reservation_id>', methods=['POST'])
@@ -1033,13 +1136,16 @@ def user_summary():
             duration_values.append(round(d, 2))
             cost_values.append(res.total_cost)
 
-    # Paginated history for the summary page
+    # Paginated history for the summary page — exclude cancelled bookings
     page = request.args.get('page', 1, type=int)
     per_page = 5
     pagination = (
         Reservation.query
         .options(joinedload(Reservation.spot).joinedload(ParkingSpot.lot))
-        .filter_by(user_id=user.id)
+        .filter(
+            Reservation.user_id == user.id,
+            Reservation.status != 'cancelled',
+        )
         .order_by(Reservation.booking_timestamp.desc())
         .paginate(page=page, per_page=per_page, error_out=False)
     )
@@ -1083,3 +1189,159 @@ def user_summary():
             "total_items": pagination.total,
         }
     }), 200
+
+
+# ─── Monthly Analysis Report (PDF) ───
+@api_user_blueprint.route('/summary/report', methods=['GET'])
+@jwt_required()
+@limiter.limit("5 per 1 minute")
+def summary_report():
+    user = get_current_user()
+    if not user or user.role != 'user':
+        return jsonify({"error": "Unauthorized"}), 403
+
+    from_date_str = request.args.get('from')
+    to_date_str = request.args.get('to')
+
+    if not from_date_str or not to_date_str:
+        return jsonify({"error": "from and to date params required (YYYY-MM-DD)"}), 400
+
+    try:
+        from_date = datetime.strptime(from_date_str, '%Y-%m-%d')
+        to_date = datetime.strptime(to_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+    except ValueError:
+        return jsonify({"error": "Invalid date format. Use YYYY-MM-DD."}), 400
+
+    reservations = (
+        Reservation.query
+        .options(joinedload(Reservation.spot).joinedload(ParkingSpot.lot))
+        .filter(
+            Reservation.user_id == user.id,
+            Reservation.status.in_(['active', 'completed', 'pending_release']),
+            Reservation.booking_timestamp >= from_date,
+            Reservation.booking_timestamp <= to_date,
+        )
+        .order_by(Reservation.booking_timestamp.desc())
+        .all()
+    )
+
+    total_cost = sum(r.total_cost or 0 for r in reservations)
+    total_hours = 0.0
+    for r in reservations:
+        if r.booking_timestamp and r.releasing_timestamp:
+            b = r.booking_timestamp.replace(tzinfo=UTC).astimezone(IST)
+            e = r.releasing_timestamp.replace(tzinfo=UTC).astimezone(IST)
+            total_hours += (e - b).total_seconds() / 3600
+    total_hours = round(total_hours, 2)
+
+    # Generate PDF
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    width, height = letter
+
+    # Header
+    c.setFont("Helvetica-Bold", 22)
+    c.setFillColor(colors.HexColor("#000000"))
+    c.drawCentredString(width / 2, height - 50, "EasePark Monthly Analysis Report")
+
+    c.setFont("Helvetica", 11)
+    c.setFillColor(colors.HexColor("#555555"))
+    c.drawCentredString(width / 2, height - 70, f"Report for: {from_date.strftime('%d %b %Y')} — {to_date.strftime('%d %b %Y')}")
+    c.drawCentredString(width / 2, height - 85, f"Generated for: {user.full_name or user.username} ({user.email})")
+
+    c.setStrokeColor(colors.black)
+    c.setLineWidth(1)
+    c.line(50, height - 95, width - 50, height - 95)
+
+    # Summary Stats
+    y = height - 125
+    c.setFont("Helvetica-Bold", 14)
+    c.setFillColor(colors.black)
+    c.drawString(50, y, "Summary")
+    y -= 25
+
+    stats = [
+        ("Total Bookings", str(len(reservations))),
+        ("Total Hours Parked", f"{total_hours} hrs"),
+        ("Total Amount Paid", f"Rs. {total_cost}"),
+    ]
+    for label, value in stats:
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(60, y, f"{label}:")
+        c.setFont("Helvetica", 11)
+        c.drawString(220, y, value)
+        y -= 20
+
+    y -= 15
+    c.setStrokeColor(colors.HexColor("#cccccc"))
+    c.line(50, y, width - 50, y)
+    y -= 25
+
+    # Booking Details Table
+    c.setFont("Helvetica-Bold", 14)
+    c.setFillColor(colors.black)
+    c.drawString(50, y, "Booking Details")
+    y -= 25
+
+    # Table header
+    col_x = [50, 100, 210, 310, 410, 490]
+    headers = ["#", "Lot", "Vehicle", "Date", "Hours", "Cost"]
+    c.setFont("Helvetica-Bold", 9)
+    c.setFillColor(colors.white)
+    c.setStrokeColor(colors.black)
+    c.rect(45, y - 5, width - 90, 18, fill=1, stroke=1)
+    c.setFillColor(colors.white)
+    for i, h in enumerate(headers):
+        c.drawString(col_x[i], y, h)
+    y -= 22
+
+    c.setFillColor(colors.black)
+    c.setFont("Helvetica", 9)
+    for idx, res in enumerate(reservations):
+        if y < 60:
+            c.showPage()
+            y = height - 50
+            c.setFont("Helvetica", 9)
+            c.setFillColor(colors.black)
+
+        spot = res.spot
+        lot = spot.lot if spot else None
+        booking_ist = res.booking_timestamp.replace(tzinfo=UTC).astimezone(IST)
+        hours = 0
+        if res.booking_timestamp and res.releasing_timestamp:
+            e = res.releasing_timestamp.replace(tzinfo=UTC).astimezone(IST)
+            hours = round((e - booking_ist).total_seconds() / 3600, 1)
+
+        if idx % 2 == 0:
+            c.setFillColor(colors.HexColor("#f5f5f5"))
+            c.rect(45, y - 5, width - 90, 16, fill=1, stroke=0)
+            c.setFillColor(colors.black)
+
+        c.drawString(col_x[0], y, str(idx + 1))
+        lot_name = (lot.parking_name if lot else "?")[:18]
+        c.drawString(col_x[1], y, lot_name)
+        c.drawString(col_x[2], y, res.vehicle_number or "N/A")
+        c.drawString(col_x[3], y, booking_ist.strftime('%d %b %Y %I:%M %p'))
+        c.drawString(col_x[4], y, f"{hours}h" if hours else "—")
+        c.drawString(col_x[5], y, f"Rs.{res.total_cost}" if res.total_cost else "—")
+        y -= 18
+
+    # Footer
+    y -= 30
+    if y < 60:
+        c.showPage()
+        y = height - 50
+    c.setFillColor(colors.HexColor("#16A085"))
+    c.setFont("Helvetica-BoldOblique", 12)
+    c.drawCentredString(width / 2, y, "Thank you for using EasePark!")
+
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+
+    response = make_response(buffer.read())
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = (
+        f'attachment; filename=easepark_report_{from_date_str}_to_{to_date_str}.pdf'
+    )
+    return response

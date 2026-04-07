@@ -4,9 +4,9 @@ import { RouterLink } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import PaginationBar from '@/components/PaginationBar.vue'
-import { getDashboard, deleteLot, type AdminLot } from '@/api/admin.api'
+import { getDashboard, deleteLot, getSpot, type AdminLot, type AdminSpotBrief } from '@/api/admin.api'
 import { useToast } from '@/composables/useToast'
-import { Plus, Edit, Trash2 } from 'lucide-vue-next'
+import { Plus, Edit, Trash2, X, User, Car, Clock, DollarSign } from 'lucide-vue-next'
 
 const toast = useToast()
 const lots = ref<AdminLot[]>([])
@@ -20,6 +20,12 @@ const paginatedLots = computed(() => {
   const start = (page.value - 1) * perPage
   return lots.value.slice(start, start + perPage)
 })
+
+// Spot detail card state
+const spotDetail = ref<any>(null)
+const spotDetailLoading = ref(false)
+const spotDetailError = ref('')
+const activeSpotId = ref<number | null>(null)
 
 async function fetchDashboard() {
   loading.value = true
@@ -52,6 +58,38 @@ function spotColor(occupied: number, total: number) {
   if (ratio >= 0.8) return 'text-red-600'
   if (ratio >= 0.5) return 'text-yellow-600'
   return 'text-green-600'
+}
+
+async function handleSpotClick(spot: AdminSpotBrief, lot: AdminLot) {
+  if (activeSpotId.value === spot.id) {
+    closeSpotDetail()
+    return
+  }
+  activeSpotId.value = spot.id
+  spotDetailLoading.value = true
+  spotDetailError.value = ''
+  spotDetail.value = null
+  try {
+    const res = await getSpot(spot.id)
+    spotDetail.value = { ...res.spot, lot_name: lot.parking_name, lot_price: lot.price }
+  } catch (err: any) {
+    spotDetailError.value = err.response?.data?.error || 'Failed to load spot details'
+  } finally {
+    spotDetailLoading.value = false
+  }
+}
+
+function closeSpotDetail() {
+  activeSpotId.value = null
+  spotDetail.value = null
+  spotDetailError.value = ''
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: true
+  })
 }
 </script>
 
@@ -97,17 +135,128 @@ function spotColor(occupied: number, total: number) {
             <p><span class="font-bold text-black">Pin:</span> {{ lot.pin_code }} &bull; <span class="font-bold text-black">Price:</span> ₹{{ lot.price }}/hr</p>
           </div>
 
-          <!-- Spot visualization -->
-          <div class="flex flex-wrap gap-1 mb-4">
-            <div
-              v-for="i in lot.total_spots"
-              :key="i"
+          <!-- Spot visualization — clickable buttons -->
+          <div class="flex flex-wrap gap-1.5 mb-4">
+            <button
+              v-for="spot in lot.spots"
+              :key="spot.id"
+              @click="handleSpotClick(spot, lot)"
               :class="[
-                'w-6 h-6 text-[10px] font-bold flex items-center justify-center border',
-                i <= lot.available_spots ? 'bg-green-100 border-green-400 text-green-700' : 'bg-red-100 border-red-400 text-red-700'
+                'w-7 h-7 text-[10px] font-bold flex items-center justify-center border-2 transition-all cursor-pointer',
+                spot.status === 'A'
+                  ? 'bg-green-100 border-green-400 text-green-700 hover:bg-green-200 hover:border-green-600'
+                  : 'bg-red-100 border-red-400 text-red-700 hover:bg-red-200 hover:border-red-600',
+                activeSpotId === spot.id ? 'ring-2 ring-black ring-offset-1 scale-110' : ''
               ]"
+              :title="`Spot ${spot.spot_number} — ${spot.status === 'A' ? 'Available' : 'Occupied'}`"
             >
-              {{ i <= lot.available_spots ? 'A' : 'O' }}
+              {{ spot.status }}
+            </button>
+          </div>
+
+          <!-- Legend -->
+          <div class="flex items-center gap-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-4">
+            <span class="flex items-center gap-1"><span class="w-3 h-3 bg-green-100 border border-green-400 inline-block"></span> Available</span>
+            <span class="flex items-center gap-1"><span class="w-3 h-3 bg-red-100 border border-red-400 inline-block"></span> Occupied</span>
+          </div>
+
+          <!-- Spot Detail Card (inline) -->
+          <transition
+            enter-active-class="transition duration-200 ease-out"
+            enter-from-class="opacity-0 -translate-y-2"
+            enter-to-class="opacity-100 translate-y-0"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="opacity-100 translate-y-0"
+            leave-to-class="opacity-0 -translate-y-2"
+          >
+            <div v-if="activeSpotId && spotDetail && lot.spots.some(s => s.id === activeSpotId)" class="mb-4 border-2 border-black bg-gray-50 p-4 relative">
+              <button @click="closeSpotDetail" class="absolute top-2 right-2 text-gray-400 hover:text-black">
+                <X :size="16" />
+              </button>
+
+              <div v-if="spotDetailLoading" class="py-4 text-center">
+                <div class="w-5 h-5 border-2 border-black border-t-transparent animate-spin mx-auto"></div>
+              </div>
+
+              <div v-else-if="spotDetailError" class="text-red-600 text-sm font-bold">{{ spotDetailError }}</div>
+
+              <div v-else-if="spotDetail">
+                <!-- Available Spot -->
+                <div v-if="spotDetail.status === 'A'">
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="w-3 h-3 bg-green-500 rounded-full"></span>
+                    <h4 class="font-bold text-black uppercase tracking-tight text-sm">Spot {{ spotDetail.spot_number }} — Available</h4>
+                  </div>
+                  <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span class="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Lot</span>
+                      <p class="font-bold text-black">{{ spotDetail.lot_name }}</p>
+                    </div>
+                    <div>
+                      <span class="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Price</span>
+                      <p class="font-bold text-black">₹{{ spotDetail.lot_price }}/hr</p>
+                    </div>
+                    <div>
+                      <span class="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Status</span>
+                      <p class="font-bold text-green-600">Ready for booking</p>
+                    </div>
+                    <div>
+                      <span class="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Active</span>
+                      <p class="font-bold text-black">{{ spotDetail.is_active ? 'Yes' : 'No' }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Occupied Spot -->
+                <div v-else>
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="w-3 h-3 bg-red-500 rounded-full"></span>
+                    <h4 class="font-bold text-black uppercase tracking-tight text-sm">Spot {{ spotDetail.spot_number }} — Occupied</h4>
+                  </div>
+
+                  <div v-if="spotDetail.reservation" class="space-y-2">
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                      <div class="flex items-start gap-1.5">
+                        <User :size="12" class="mt-0.5 text-gray-400 shrink-0" />
+                        <div>
+                          <span class="text-gray-400 font-bold uppercase tracking-wider text-[10px]">User</span>
+                          <p class="font-bold text-black">{{ spotDetail.reservation.username }}</p>
+                        </div>
+                      </div>
+                      <div class="flex items-start gap-1.5">
+                        <Car :size="12" class="mt-0.5 text-gray-400 shrink-0" />
+                        <div>
+                          <span class="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Vehicle</span>
+                          <p class="font-bold text-black font-mono">{{ spotDetail.reservation.vehicle_number }}</p>
+                        </div>
+                      </div>
+                      <div class="flex items-start gap-1.5">
+                        <Clock :size="12" class="mt-0.5 text-gray-400 shrink-0" />
+                        <div>
+                          <span class="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Since</span>
+                          <p class="font-bold text-black">{{ formatDate(spotDetail.reservation.booking_time) }}</p>
+                        </div>
+                      </div>
+                      <div class="flex items-start gap-1.5">
+                        <DollarSign :size="12" class="mt-0.5 text-gray-400 shrink-0" />
+                        <div>
+                          <span class="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Est. Cost</span>
+                          <p class="font-bold text-black">₹{{ spotDetail.reservation.estimated_cost }} ({{ spotDetail.reservation.duration_hours }}h)</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <p v-else class="text-xs text-gray-400 font-medium">No active reservation details found.</p>
+                </div>
+              </div>
+            </div>
+          </transition>
+
+          <!-- Spot Detail Loading (for this lot's spots) -->
+          <div v-if="activeSpotId && spotDetailLoading && lot.spots.some(s => s.id === activeSpotId)" class="mb-4 border-2 border-gray-300 bg-gray-50 p-4">
+            <div class="py-2 text-center">
+              <div class="w-5 h-5 border-2 border-black border-t-transparent animate-spin mx-auto mb-2"></div>
+              <p class="text-xs text-gray-400 font-bold">Loading spot details...</p>
             </div>
           </div>
 

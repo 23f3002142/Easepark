@@ -57,6 +57,16 @@ function openReserve(lot: ParkingLot) {
   showModal.value = true
 }
 
+// Route calculation loader
+const routeLoading = ref(false)
+const routeMessage = ref('')
+const routeMessages = [
+  'Finding the best spot for you...',
+  'Calculating route to parking...',
+  'Reserving your spot...',
+  'Almost there...',
+]
+
 async function handleReserve() {
   if (!selectedLot.value || !vehicleNumber.value.trim()) {
     reserveError.value = 'Vehicle number is required'
@@ -64,14 +74,30 @@ async function handleReserve() {
   }
   reserveLoading.value = true
   reserveError.value = ''
+  showModal.value = false
+  routeLoading.value = true
+  routeMessage.value = routeMessages[0]
+
+  // Cycle through messages for UX
+  let msgIdx = 0
+  const msgInterval = setInterval(() => {
+    msgIdx = (msgIdx + 1) % routeMessages.length
+    routeMessage.value = routeMessages[msgIdx]
+  }, 1500)
+
   try {
     const res = await reserveSpot(selectedLot.value.id, vehicleNumber.value.trim())
+    routeMessage.value = 'Spot reserved! Redirecting...'
+    await new Promise(r => setTimeout(r, 1000))
     toast.success(res.message)
     router.push('/bookings')
   } catch (err: any) {
     reserveError.value = err.response?.data?.error || 'Failed to reserve spot'
+    showModal.value = true
   } finally {
+    clearInterval(msgInterval)
     reserveLoading.value = false
+    routeLoading.value = false
   }
 }
 </script>
@@ -165,6 +191,35 @@ async function handleReserve() {
         @change="onPageChange"
       />
     </div>
+
+    <!-- Route Calculation Loader -->
+    <teleport to="body">
+      <transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div v-if="routeLoading" class="fixed inset-0 z-[110] flex flex-col items-center justify-center bg-white">
+          <div class="text-center">
+            <div class="relative w-24 h-24 mx-auto mb-8">
+              <div class="absolute inset-0 border-4 border-gray-200 rounded-full"></div>
+              <div class="absolute inset-0 border-4 border-black border-t-transparent rounded-full animate-spin"></div>
+              <div class="absolute inset-3 border-4 border-gray-300 border-b-transparent rounded-full animate-spin" style="animation-direction: reverse; animation-duration: 1.5s;"></div>
+            </div>
+            <p class="text-2xl font-bold text-black tracking-tight mb-3">{{ routeMessage }}</p>
+            <p class="text-sm text-gray-400 font-medium">Please wait while we set things up for you</p>
+            <div class="mt-6 flex items-center justify-center gap-1.5">
+              <div class="w-2 h-2 bg-black rounded-full animate-bounce" style="animation-delay: 0ms;"></div>
+              <div class="w-2 h-2 bg-black rounded-full animate-bounce" style="animation-delay: 150ms;"></div>
+              <div class="w-2 h-2 bg-black rounded-full animate-bounce" style="animation-delay: 300ms;"></div>
+            </div>
+          </div>
+        </div>
+      </transition>
+    </teleport>
 
     <!-- Reserve Modal -->
     <teleport to="body">

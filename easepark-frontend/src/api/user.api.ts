@@ -166,6 +166,11 @@ export async function releaseSpot(reservationId: number): Promise<ReleasePayment
   return data
 }
 
+export async function releaseSpotFree(reservationId: number): Promise<{ message: string; total_cost: number; duration_hours: number }> {
+  const { data } = await api.post(`/user/release/${reservationId}/confirm-free`)
+  return data
+}
+
 export async function verifyPayment(payload: {
   payment_id: string
   order_id: string
@@ -181,7 +186,34 @@ export function getReceiptUrl(reservationId: number): string {
   return `/api/user/receipt/${reservationId}?token=${token}`
 }
 
+export async function downloadHistoryCsv(): Promise<void> {
+  const response = await api.get('/user/history/csv', { responseType: 'blob' })
+  const url = window.URL.createObjectURL(new Blob([response.data]))
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', 'easepark_bookings.csv')
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
+
 export async function getSummary(params: { page?: number }): Promise<SummaryData> {
   const { data } = await api.get('/user/summary', { params })
   return data
+}
+
+export async function downloadSummaryReport(fromDate: string, toDate: string): Promise<void> {
+  const response = await api.get('/user/summary/report', {
+    params: { from: fromDate, to: toDate },
+    responseType: 'blob',
+  })
+  const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', `easepark_report_${fromDate}_to_${toDate}.pdf`)
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
 }

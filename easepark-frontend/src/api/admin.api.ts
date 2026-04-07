@@ -1,6 +1,12 @@
 import api from './axios'
 import type { User } from '@/types/user'
 
+export interface AdminSpotBrief {
+  id: number
+  spot_number: string
+  status: 'A' | 'O'
+}
+
 export interface AdminLot {
   id: number
   parking_name: string
@@ -13,6 +19,7 @@ export interface AdminLot {
   total_spots: number
   occupied_spots: number
   available_spots: number
+  spots: AdminSpotBrief[]
 }
 
 export interface AdminLotDetail {

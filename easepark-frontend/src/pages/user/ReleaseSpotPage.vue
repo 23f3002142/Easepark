@@ -3,11 +3,11 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import {
-  getReleaseInfo, releaseSpot, verifyPayment, cancelRelease,
+  getReleaseInfo, releaseSpot, releaseSpotFree, verifyPayment, cancelRelease,
   sendReleaseOtp, verifyReleaseOtp, verifyReleasePassword,
   type ReleaseInfo,
 } from '@/api/user.api'
-import { ShieldCheck, Lock, Mail, Eye, EyeOff } from 'lucide-vue-next'
+import { ShieldCheck, Lock, Mail, Eye, EyeOff, CreditCard, CheckCircle } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,8 +17,8 @@ const loading = ref(true)
 const error = ref('')
 const success = ref('')
 
-// Steps: 'info' → 'choose' → 'otp' | 'password' → 'payment'
-const step = ref<'info' | 'choose' | 'otp' | 'password' | 'payment'>('info')
+// Steps: 'info' → 'choose' → 'otp' | 'password' → 'pay_method' → 'payment'
+const step = ref<'info' | 'choose' | 'otp' | 'password' | 'pay_method' | 'payment'>('info')
 const releasing = ref(false)
 const verifying = ref(false)
 
@@ -98,8 +98,7 @@ async function handleVerifyOtp() {
   error.value = ''
   try {
     await verifyReleaseOtp(reservationId, otp.value.trim())
-    step.value = 'payment'
-    handlePayment()
+    step.value = 'pay_method'
   } catch (err: any) {
     error.value = err.response?.data?.error || 'OTP verification failed'
   } finally {
@@ -116,12 +115,30 @@ async function handleVerifyPassword() {
   error.value = ''
   try {
     await verifyReleasePassword(reservationId, password.value)
-    step.value = 'payment'
-    handlePayment()
+    step.value = 'pay_method'
   } catch (err: any) {
     error.value = err.response?.data?.error || 'Password verification failed'
   } finally {
     verifying.value = false
+  }
+}
+
+function chooseRazorpay() {
+  error.value = ''
+  step.value = 'payment'
+  handlePayment()
+}
+
+async function handleReleaseFree() {
+  releasing.value = true
+  error.value = ''
+  try {
+    const res = await releaseSpotFree(reservationId)
+    success.value = `Spot released! Total cost: ₹${res.total_cost} (${res.duration_hours}h). Payment pending offline.`
+    setTimeout(() => router.push('/dashboard'), 2500)
+  } catch (err: any) {
+    error.value = err.response?.data?.error || 'Failed to release spot'
+    releasing.value = false
   }
 }
 
@@ -223,7 +240,7 @@ async function resendOtp() {
       <div class="text-center mb-8">
         <h1 class="text-3xl md:text-4xl font-bold tracking-tighter text-black">Release Parking Spot</h1>
         <p class="text-lg text-gray-500 font-medium mt-2">
-          {{ step === 'info' ? 'Review details and confirm release' : step === 'choose' ? 'Choose confirmation method' : step === 'otp' ? 'Enter OTP to confirm' : step === 'password' ? 'Enter password to confirm' : 'Processing payment...' }}
+          {{ step === 'info' ? 'Review details and confirm release' : step === 'choose' ? 'Choose confirmation method' : step === 'otp' ? 'Enter OTP to confirm' : step === 'password' ? 'Enter password to confirm' : step === 'pay_method' ? 'Choose payment method' : 'Processing payment...' }}
         </p>
       </div>
 
@@ -345,6 +362,48 @@ async function resendOtp() {
           </form>
           <button @click="step = 'choose'" class="w-full mt-4 py-3 text-gray-500 text-sm font-bold hover:text-black transition-colors">
             &larr; Back to Options
+          </button>
+        </template>
+
+        <!-- Step: Choose payment method -->
+        <template v-if="step === 'pay_method' && !success">
+          <div class="text-center mb-6">
+            <CheckCircle :size="32" class="mx-auto mb-2 text-green-600" />
+            <p class="text-green-600 text-sm font-bold mb-1">Identity Verified!</p>
+            <p class="text-gray-500 text-sm font-medium">Choose how you'd like to complete the release.</p>
+          </div>
+
+          <div v-if="info" class="mb-6 p-4 bg-gray-50 border-2 border-gray-200">
+            <div class="flex justify-between items-center">
+              <span class="text-sm font-bold text-gray-500 uppercase tracking-wider">Estimated Cost</span>
+              <span class="text-2xl font-bold text-black">&#8377;{{ info.estimated_cost.toFixed(2) }}</span>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <button
+              @click="chooseRazorpay"
+              :disabled="releasing"
+              class="w-full py-4 bg-black text-white font-bold uppercase tracking-widest text-sm hover:bg-gray-800 disabled:bg-gray-400 transition-colors flex items-center justify-center gap-3"
+            >
+              <CreditCard :size="18" /> Pay via Razorpay
+            </button>
+            <div class="relative">
+              <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-300"></div></div>
+              <div class="relative flex justify-center"><span class="bg-white px-4 text-xs font-bold text-gray-400 uppercase tracking-wider">or</span></div>
+            </div>
+            <button
+              @click="handleReleaseFree"
+              :disabled="releasing"
+              class="w-full py-4 bg-white text-black border-2 border-black font-bold uppercase tracking-widest text-sm hover:bg-gray-100 disabled:opacity-50 transition-colors flex items-center justify-center gap-3"
+            >
+              <Lock :size="18" /> Confirm &amp; Release (Skip Payment)
+            </button>
+            <p class="text-center text-xs text-gray-400">Razorpay is in beta. Choose "Skip Payment" to release without online payment.</p>
+          </div>
+
+          <button @click="handleCancel" class="w-full mt-4 py-3 bg-white text-red-600 border-2 border-red-600 font-bold uppercase tracking-widest text-sm hover:bg-red-50 transition-colors">
+            Cancel Release
           </button>
         </template>
 

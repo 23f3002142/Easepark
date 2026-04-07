@@ -4,8 +4,9 @@ import DashboardLayout from '@/components/DashboardLayout.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatCard from '@/components/StatCard.vue'
 import PaginationBar from '@/components/PaginationBar.vue'
-import { getSummary, type SummaryData } from '@/api/user.api'
+import { getSummary, downloadSummaryReport, type SummaryData } from '@/api/user.api'
 import Chart from 'chart.js/auto'
+import { Download, FileText } from 'lucide-vue-next'
 
 const data = ref<SummaryData | null>(null)
 const loading = ref(true)
@@ -124,6 +125,40 @@ function formatDateTime(iso: string) {
 function onPageChange(p: number) {
   fetchSummary(p)
 }
+
+// Report download state
+const reportFrom = ref('')
+const reportTo = ref('')
+const reportLoading = ref(false)
+const reportError = ref('')
+
+function getDefaultDates() {
+  const now = new Date()
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
+  reportFrom.value = firstDay.toISOString().split('T')[0]
+  reportTo.value = now.toISOString().split('T')[0]
+}
+getDefaultDates()
+
+async function handleReportDownload() {
+  if (!reportFrom.value || !reportTo.value) {
+    reportError.value = 'Please select both from and to dates'
+    return
+  }
+  if (reportFrom.value > reportTo.value) {
+    reportError.value = 'From date must be before To date'
+    return
+  }
+  reportLoading.value = true
+  reportError.value = ''
+  try {
+    await downloadSummaryReport(reportFrom.value, reportTo.value)
+  } catch (err: any) {
+    reportError.value = err.response?.data?.error || 'Failed to generate report'
+  } finally {
+    reportLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -192,6 +227,43 @@ function onPageChange(p: number) {
 
       <div v-else class="mb-12 py-8 text-center border-2 border-dashed border-gray-300">
         <p class="text-gray-400 font-bold">No bookings yet.</p>
+      </div>
+
+      <!-- Monthly Report Download -->
+      <div class="mb-12 bg-white border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+        <div class="flex items-center gap-2 mb-4">
+          <FileText :size="20" />
+          <h2 class="text-xl font-bold text-black uppercase tracking-tight">Download Monthly Report</h2>
+        </div>
+        <p class="text-sm text-gray-500 mb-4">Select a date range to generate a PDF analysis report of your bookings.</p>
+
+        <div v-if="reportError" class="mb-4 p-3 bg-red-50 border-2 border-red-600 text-red-600 text-sm font-bold">{{ reportError }}</div>
+
+        <div class="flex flex-col sm:flex-row items-end gap-4">
+          <div class="flex-1 w-full">
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">From</label>
+            <input
+              v-model="reportFrom"
+              type="date"
+              class="w-full px-4 py-2.5 border-2 border-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black"
+            />
+          </div>
+          <div class="flex-1 w-full">
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">To</label>
+            <input
+              v-model="reportTo"
+              type="date"
+              class="w-full px-4 py-2.5 border-2 border-black text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black"
+            />
+          </div>
+          <button
+            @click="handleReportDownload"
+            :disabled="reportLoading"
+            class="inline-flex items-center gap-2 px-6 py-2.5 bg-black text-white font-bold uppercase tracking-wider text-sm hover:bg-gray-800 disabled:bg-gray-400 transition-colors whitespace-nowrap"
+          >
+            <Download :size="16" /> {{ reportLoading ? 'Generating...' : 'Download PDF' }}
+          </button>
+        </div>
       </div>
 
       <!-- Charts -->
