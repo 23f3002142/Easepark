@@ -18,6 +18,7 @@ from flask_mail import Mail
 from flask_limiter.errors import RateLimitExceeded
 from flask_migrate import Migrate
 from datetime import timedelta
+from sqlalchemy import text
 
 import os
 
@@ -44,10 +45,18 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     "pool_pre_ping": True  
 }
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-# Rate limiter: only set Redis URL if available, otherwise use memory storage
+# Rate limiter: only use Redis if it's actually reachable, otherwise use memory
 redis_url = os.getenv("REDIS_URL")
 if redis_url and redis_url.strip():
-    app.config['RATELIMIT_STORAGE_URI'] = redis_url
+    try:
+        import redis as _redis
+        _r = _redis.from_url(redis_url, socket_connect_timeout=3)
+        _r.ping()
+        app.config['RATELIMIT_STORAGE_URI'] = redis_url
+        print("Rate limiter: using Redis")
+    except Exception as _e:
+        print(f"Rate limiter: Redis unavailable ({_e}), falling back to in-memory")
+        # Don't set RATELIMIT_STORAGE_URI → defaults to memory
 # Session cookies: set SECURE=True only in production (HTTPS)
 app.config['SESSION_COOKIE_SECURE'] = os.getenv("SESSION_COOKIE_SECURE", "False") == "True"
 app.config['SESSION_COOKIE_SAMESITE'] = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
@@ -138,29 +147,11 @@ def seed_admin_user():
         db.session.add(admin)
         db.session.commit()
 
-# Initialize database on startup (but handle errors gracefully)
-try:
-    with app.app_context():
-        db.create_all()
-        seed_admin_user()
-        print("Database initialized successfully")
-except Exception as e:
-    print(f"Database initialization failed: {e}")
-    # Don't fail the app startup, just log the error
-
-# Start keep-alive thread in production
-try:
-    start_keep_alive()
-    print("Keep-alive thread started")
-except Exception as e:
-    print(f"Keep-alive failed to start: {e}")
-
-# ─── Keep-Alive Endpoint (prevents Render free tier sleep)
+# ─── Keep-Alive Endpoint (prevents Render free tier sleep) ───
 @app.route('/api/health', methods=['GET'])
 def health_check():
     try:
-        # Test database connection
-        db.session.execute('SELECT 1')
+        db.session.execute(text('SELECT 1'))
         return jsonify({"status": "ok", "database": "connected"}), 200
     except Exception as e:
         return jsonify({"status": "error", "database": "disconnected", "error": str(e)}), 500
@@ -188,12 +179,24 @@ def start_keep_alive():
     t.start()
 
 
+# Initialize database on startup (but handle errors gracefully)
+try:
+    with app.app_context():
+        db.create_all()
+        seed_admin_user()
+        print("Database initialized successfully")
+except Exception as e:
+    print(f"Database initialization failed: {e}")
+
+# Start keep-alive thread
+try:
+    start_keep_alive()
+except Exception as e:
+    print(f"Keep-alive failed to start: {e}")
+
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
         seed_admin_user()
-    # Run only when directly executed, not when imported by Gunicorn
     app.run(host="0.0.0.0", port=5000, debug=True)
-else:
-    # When imported by Gunicorn in production, start keep-alive
-    start_keep_alive()
