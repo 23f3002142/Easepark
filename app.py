@@ -44,7 +44,10 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     "pool_pre_ping": True  
 }
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['RATELIMIT_STORAGE_URI'] = os.getenv("REDIS_URL")
+# Rate limiter: only set Redis URL if available, otherwise use memory storage
+redis_url = os.getenv("REDIS_URL")
+if redis_url and redis_url.strip():
+    app.config['RATELIMIT_STORAGE_URI'] = redis_url
 # Session cookies: set SECURE=True only in production (HTTPS)
 app.config['SESSION_COOKIE_SECURE'] = os.getenv("SESSION_COOKIE_SECURE", "False") == "True"
 app.config['SESSION_COOKIE_SAMESITE'] = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
@@ -60,8 +63,14 @@ migrate = Migrate(app, db)
 jwt.init_app(app)
 frontend_origin = os.getenv("FRONTEND_URL", "http://localhost:5173")
 allowed_origins = [o.strip() for o in frontend_origin.split(",") if o.strip()]
+# Always allow localhost for development
 if "http://localhost:5173" not in allowed_origins:
     allowed_origins.append("http://localhost:5173")
+# In production, prioritize the actual frontend URL
+if os.getenv("BASE_URL"):  # This indicates we're in production
+    production_frontend = os.getenv("FRONTEND_URL")
+    if production_frontend and production_frontend not in allowed_origins:
+        allowed_origins.insert(0, production_frontend)
 cors.init_app(app, resources={r"/api/*": {"origins": allowed_origins}}, supports_credentials=True)
 
 #rate_limiter
