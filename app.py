@@ -138,15 +138,32 @@ def seed_admin_user():
         db.session.add(admin)
         db.session.commit()
 
-with app.app_context():
-    db.create_all()
-    seed_admin_user()
+# Initialize database on startup (but handle errors gracefully)
+try:
+    with app.app_context():
+        db.create_all()
+        seed_admin_user()
+        print("Database initialized successfully")
+except Exception as e:
+    print(f"Database initialization failed: {e}")
+    # Don't fail the app startup, just log the error
 
+# Start keep-alive thread in production
+try:
+    start_keep_alive()
+    print("Keep-alive thread started")
+except Exception as e:
+    print(f"Keep-alive failed to start: {e}")
 
-# ─── Keep-Alive Endpoint (prevents Render free tier sleep) ───
+# ─── Keep-Alive Endpoint (prevents Render free tier sleep)
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    return jsonify({"status": "ok"}), 200
+    try:
+        # Test database connection
+        db.session.execute('SELECT 1')
+        return jsonify({"status": "ok", "database": "connected"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "database": "disconnected", "error": str(e)}), 500
 
 
 def start_keep_alive():
