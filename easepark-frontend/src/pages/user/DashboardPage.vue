@@ -2,7 +2,6 @@
 import { ref, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
-import PageHeader from '@/components/PageHeader.vue'
 import StatCard from '@/components/StatCard.vue'
 import { getDashboard, type DashboardData } from '@/api/user.api'
 import { Car, Clock, BarChart3, Bell, MapPin, ArrowRight } from 'lucide-vue-next'

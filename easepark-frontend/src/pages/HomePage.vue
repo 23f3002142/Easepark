@@ -4,8 +4,8 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth.store'
 import {
   Car, MapPin, Shield, Zap, CreditCard, BarChart3,
-  Phone, Mail, Search, CircleParking, ChevronRight,
-  Github, Linkedin, Instagram, Twitter, Menu, X,
+  Search, CircleParking,
+  Menu, X,
   ArrowRight, CheckCircle2, Map, CalendarCheck, Clock,
   Settings, Star
 } from 'lucide-vue-next'

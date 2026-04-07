@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
-import { verifyOtp } from '@/api/user.api'
+import { verifyReleaseOtp } from '@/api/user.api'
 import { ShieldCheck } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -50,7 +50,7 @@ async function handleVerify() {
   loading.value = true
   error.value = ''
   try {
-    const res = await verifyOtp(reservationId.value, otp.value.trim())
+    const res = await verifyReleaseOtp(reservationId.value, otp.value.trim())
     success.value = res.message
     setTimeout(() => router.push('/bookings'), 1500)
   } catch (err: any) {

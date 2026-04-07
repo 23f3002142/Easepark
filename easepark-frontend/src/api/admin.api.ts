@@ -1,5 +1,4 @@
 import api from './axios'
-import type { ParkingLot } from '@/types/parking'
 import type { User } from '@/types/user'
 
 export interface AdminLot {
