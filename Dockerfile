@@ -11,12 +11,9 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Add Gunicorn for production use
-RUN pip install gunicorn
-
 COPY . .
 
 EXPOSE 5000
 
-# Default command → dev server
-CMD ["flask", "run", "--host=0.0.0.0", "--port=5000"]
+# Production: Gunicorn with 2 workers, 120s timeout for cold starts
+CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120"]
