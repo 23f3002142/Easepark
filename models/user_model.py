@@ -34,6 +34,9 @@ class ParkingLot(UserMixin, db.Model):
     latitude = db.Column(db.Float, nullable=True)
     longitude = db.Column(db.Float, nullable=True)
 
+    lot_type = db.Column(db.String(30), nullable=True)  # open, covered, shaded, underground, multi_level
+    amenities = db.Column(db.Text, nullable=True)  # comma-separated tags
+
     spots = db.relationship('ParkingSpot', backref='lot', cascade="all, delete", lazy='dynamic')
 
 
@@ -82,3 +85,15 @@ class Payment(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     reservation = db.relationship('Reservation', backref='payment', lazy=True)
+
+
+class Notification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    title = db.Column(db.String(200), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    type = db.Column(db.String(30), default='info')  # info, success, warning, error
+    is_read = db.Column(db.Boolean, default=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    user = db.relationship('Users', backref=db.backref('notifications', lazy='dynamic', order_by='Notification.created_at.desc()'))

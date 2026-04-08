@@ -97,6 +97,8 @@ def dashboard():
             "total_spots": total,
             "occupied_spots": occupied,
             "available_spots": total - occupied,
+            "lot_type": lot.lot_type,
+            "amenities": lot.amenities,
             "spots": lot_spots,
         })
 
@@ -158,6 +160,8 @@ def add_lot():
     max_spots = data.get('max_spots')
     latitude = data.get('latitude')
     longitude = data.get('longitude')
+    lot_type = data.get('lot_type', '').strip() or None
+    amenities = data.get('amenities', '').strip() or None
 
     if not all([name, price, address, pin_code, max_spots]):
         return jsonify({"error": "parking_name, price, address, pin_code, and max_spots are required"}), 400
@@ -168,7 +172,8 @@ def add_lot():
     new_lot = ParkingLot(
         parking_name=name, price=float(price), address=address,
         pin_code=pin_code, max_spots=int(max_spots),
-        latitude=lat_val, longitude=long_val
+        latitude=lat_val, longitude=long_val,
+        lot_type=lot_type, amenities=amenities,
     )  # type: ignore
     db.session.add(new_lot)
     db.session.commit()
@@ -202,6 +207,8 @@ def edit_lot(lot_id):
     lot.pin_code = data.get('pin_code', lot.pin_code)
     lot.latitude = data.get('latitude', lot.latitude)
     lot.longitude = data.get('longitude', lot.longitude)
+    lot.lot_type = data.get('lot_type', lot.lot_type)
+    lot.amenities = data.get('amenities', lot.amenities)
 
     new_max_spots = int(data.get('max_spots', lot.max_spots))
     current_spots_count = lot.spots.count()
@@ -255,6 +262,8 @@ def get_lot(lot_id):
             "latitude": lot.latitude,
             "longitude": lot.longitude,
             "is_active": lot.is_active,
+            "lot_type": lot.lot_type,
+            "amenities": lot.amenities,
             "spots": spots,
         }
     }), 200

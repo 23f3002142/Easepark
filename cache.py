@@ -8,11 +8,17 @@ try:
     import redis
     _redis_url = os.getenv("REDIS_URL")
     if _redis_url:
-        redis_client = redis.from_url(_redis_url, decode_responses=True)
+        _kwargs = {"decode_responses": True, "socket_connect_timeout": 5, "socket_timeout": 5}
+        if _redis_url.startswith("rediss://"):
+            import ssl
+            _kwargs["ssl_cert_reqs"] = ssl.CERT_NONE
+        redis_client = redis.from_url(_redis_url, **_kwargs)
         redis_client.ping()
+        print("Cache: using Redis")
     else:
         redis_client = None
-except Exception:
+except Exception as _e:
+    print(f"Cache: Redis unavailable ({_e}), caching disabled")
     redis_client = None
 
 

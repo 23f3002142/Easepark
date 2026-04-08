@@ -18,16 +18,21 @@ const spentChartRef = ref<HTMLCanvasElement | null>(null)
 
 let charts: Chart[] = []
 
+const gridColor = 'rgba(148, 163, 184, 0.22)'
+const axisTickColor = '#334155'
+const bookingBarPalette = ['#2563EB', '#0EA5E9', '#14B8A6', '#22C55E', '#F59E0B', '#F97316', '#8B5CF6', '#EC4899']
+const durationPalette = ['#0EA5E9', '#22C55E', '#F59E0B', '#FB7185', '#8B5CF6', '#14B8A6', '#F97316']
+
 async function fetchSummary(page = 1) {
   loading.value = true
   try {
     data.value = await getSummary({ page })
-    await nextTick()
-    renderCharts()
   } catch (err: any) {
     error.value = err.response?.data?.error || 'Failed to load summary'
   } finally {
     loading.value = false
+    await nextTick()
+    renderCharts()
   }
 }
 
@@ -46,12 +51,30 @@ function renderCharts() {
         datasets: [{
           label: 'Bookings',
           data: data.value.chart_data,
-          backgroundColor: 'rgba(0,0,0,0.8)',
-          borderColor: '#000',
-          borderWidth: 1
+          backgroundColor: data.value.chart_data.map((_, idx) => bookingBarPalette[idx % bookingBarPalette.length]),
+          borderColor: '#1E3A8A',
+          borderWidth: 1,
+          borderRadius: 8,
+          maxBarThickness: 40
         }]
       },
-      options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          x: {
+            ticks: { color: axisTickColor },
+            grid: { color: gridColor }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { precision: 0, color: axisTickColor },
+            grid: { color: gridColor }
+          }
+        }
+      }
     }))
   }
 
@@ -62,12 +85,22 @@ function renderCharts() {
         labels: data.value.chart_duration_labels,
         datasets: [{
           data: data.value.chart_duration_data,
-          backgroundColor: ['#000', '#333', '#555', '#777', '#999', '#bbb', '#ddd'],
+          backgroundColor: durationPalette,
           borderColor: '#fff',
-          borderWidth: 2
+          borderWidth: 2,
+          hoverOffset: 10,
+          spacing: 2
         }]
       },
-      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { color: axisTickColor }
+          }
+        }
+      }
     }))
   }
 
@@ -81,19 +114,24 @@ function renderCharts() {
             type: 'bar',
             label: 'Time Parked (hrs)',
             data: data.value.chart_duration_data_each,
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            borderColor: '#000',
+            backgroundColor: 'rgba(20, 184, 166, 0.65)',
+            borderColor: '#0F766E',
             borderWidth: 1,
+            borderRadius: 8,
             yAxisID: 'y'
           },
           {
             type: 'line',
             label: 'Total Cost (₹)',
             data: data.value.chart_cost_data_each,
-            borderColor: '#666',
-            backgroundColor: 'rgba(100,100,100,0.1)',
+            borderColor: '#2563EB',
+            backgroundColor: 'rgba(37, 99, 235, 0.14)',
             tension: 0.4,
             fill: false,
+            pointBackgroundColor: '#2563EB',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 3,
             yAxisID: 'y1'
           }
         ]
@@ -101,9 +139,30 @@ function renderCharts() {
       options: {
         responsive: true,
         interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            labels: { color: axisTickColor }
+          }
+        },
         scales: {
-          y: { type: 'linear', position: 'left', title: { display: true, text: 'Hours Parked' } },
-          y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Cost (₹)' } }
+          x: {
+            ticks: { color: axisTickColor },
+            grid: { color: gridColor }
+          },
+          y: {
+            type: 'linear',
+            position: 'left',
+            title: { display: true, text: 'Hours Parked', color: axisTickColor },
+            ticks: { color: axisTickColor },
+            grid: { color: gridColor }
+          },
+          y1: {
+            type: 'linear',
+            position: 'right',
+            title: { display: true, text: 'Cost (₹)', color: axisTickColor },
+            ticks: { color: axisTickColor },
+            grid: { drawOnChartArea: false, color: gridColor }
+          }
         }
       }
     }))
@@ -272,20 +331,20 @@ async function handleReportDownload() {
 
       <div v-if="data.total_bookings > 0" class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
         <!-- Donut Chart -->
-        <div class="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+        <div class="bg-gradient-to-br from-white to-cyan-50 border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
           <h3 class="font-bold text-black uppercase tracking-tight mb-4 text-center">Parking Duration Distribution</h3>
           <canvas ref="durationChartRef"></canvas>
         </div>
 
         <div class="space-y-8">
           <!-- Spent vs Time Chart -->
-          <div class="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+          <div class="bg-gradient-to-br from-white to-emerald-50 border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             <h3 class="font-bold text-black uppercase tracking-tight mb-4 text-center">Total Spent vs Time Parked</h3>
             <canvas ref="spentChartRef"></canvas>
           </div>
 
           <!-- Booking Timeline Chart -->
-          <div class="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+          <div class="bg-gradient-to-br from-white to-blue-50 border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             <h3 class="font-bold text-black uppercase tracking-tight mb-4 text-center">Booking History Timeline</h3>
             <canvas ref="bookingChartRef"></canvas>
           </div>

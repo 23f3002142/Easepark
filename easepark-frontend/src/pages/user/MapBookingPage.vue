@@ -41,6 +41,7 @@ const routeDistance = ref('')
 const routeTime = ref('')
 const routeTarget = ref<string | null>(null)
 const showRouteInfo = ref(false)
+const routeCalculating = ref(false)
 
 // Reserve modal
 const showModal = ref(false)
@@ -194,6 +195,8 @@ async function loadAllLots() {
 function buildPopupHtml(lot: any) {
   const name = lot.name || lot.parking_name
   const escapedName = name.replace(/'/g, "\\'").replace(/"/g, '&quot;')
+  const lotTypeHtml = lot.lot_type ? `<span style="background:#f3f4f6;border:1px solid #d1d5db;padding:1px 6px;font-size:10px;font-weight:700;text-transform:uppercase;color:#666;">${lot.lot_type.replace('_', ' ')}</span>` : ''
+  const amenitiesHtml = lot.amenities ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px;">${lot.amenities.split(',').map((a: string) => `<span style="background:#f9fafb;border:1px solid #e5e7eb;padding:1px 5px;font-size:9px;font-weight:600;color:#888;">${a.trim()}</span>`).join('')}</div>` : ''
   return `
     <div style="min-width:200px; font-family:'Poppins',sans-serif;">
       <h3 style="font-weight:700; font-size:14px; margin:0 0 4px;">${name}</h3>
@@ -202,7 +205,9 @@ function buildPopupHtml(lot: any) {
         <span style="background:#000;color:#fff;padding:2px 8px;font-size:11px;font-weight:700;">₹${lot.price}/hr</span>
         <span style="background:${lot.free_spots > 0 ? '#16a34a' : '#dc2626'};color:#fff;padding:2px 8px;font-size:11px;font-weight:700;">${lot.free_spots} free</span>
         ${lot.distance_km !== undefined ? `<span style="background:#2563eb;color:#fff;padding:2px 8px;font-size:11px;font-weight:700;">${lot.distance_km} km</span>` : ''}
+        ${lotTypeHtml}
       </div>
+      ${amenitiesHtml}
       ${lot.free_spots > 0
         ? `<button onclick="window.__mapReserve(${lot.id},'${escapedName}',${lot.free_spots},${lot.price},'${(lot.address || '').replace(/'/g, "\\'")}')" style="width:100%;padding:8px;background:#000;color:#fff;border:none;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:1px;cursor:pointer;">Reserve</button>`
         : `<p style="text-align:center;font-weight:700;color:#999;font-size:11px;text-transform:uppercase;">Full</p>`
@@ -259,6 +264,7 @@ async function drawRoute(destLat: number, destLng: number, destName: string) {
 
   routeTarget.value = destName
   showRouteInfo.value = true
+  routeCalculating.value = true
   routeDistance.value = 'Calculating...'
   routeTime.value = ''
 
@@ -289,11 +295,13 @@ async function drawRoute(destLat: number, destLng: number, destName: string) {
     const timeMin = Math.round(route.summary.totalTime / 60)
     routeDistance.value = `${distKm} km`
     routeTime.value = timeMin < 60 ? `${timeMin} min` : `${Math.floor(timeMin / 60)}h ${timeMin % 60}m`
+    routeCalculating.value = false
   })
 
   routingControl.on('routingerror', () => {
     routeDistance.value = 'Route unavailable'
     routeTime.value = ''
+    routeCalculating.value = false
   })
 }
 
@@ -486,6 +494,24 @@ function relocate() {
               </div>
             </div>
           </button>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Route Calculating Overlay -->
+    <transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition duration-150 ease-in"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div v-if="routeCalculating" class="absolute inset-0 z-[1500] flex items-center justify-center pointer-events-none">
+        <div class="bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] px-6 py-5 md:px-8 md:py-6 text-center pointer-events-auto">
+          <div class="w-8 h-8 md:w-10 md:h-10 border-4 border-black border-t-transparent animate-spin mx-auto mb-3"></div>
+          <p class="text-xs md:text-sm font-bold text-black uppercase tracking-wider">Calculating Route...</p>
+          <p class="text-[10px] md:text-xs text-gray-400 mt-1">Finding the best path for you</p>
         </div>
       </div>
     </transition>

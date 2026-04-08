@@ -13,6 +13,8 @@ export interface ParkingLot {
   free_spots?: number
   occupied_spots?: number
   available_spots?: number
+  lot_type?: string | null
+  amenities?: string | null
 }
 
 export interface ParkingSpot {

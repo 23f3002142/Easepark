@@ -3,6 +3,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from models.user_model import Users, db
 from extensions import oauth
+from urllib.parse import quote_plus
 import base64
 import os
 
@@ -22,6 +23,35 @@ def serialize_user(user):
         "member_since": user.member_since.isoformat() if user.member_since else None,
         "total_bookings": user.total_bookings,
     }
+
+
+def _normalized_frontend_url() -> str:
+    return os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+
+
+def _oauth_error_redirect(message: str):
+    return redirect(f"{_normalized_frontend_url()}/login?oauth_error={quote_plus(message)}")
+
+
+def _generate_unique_username(seed: str) -> str:
+    base = (seed or "user").strip().lower()
+    # Keep usernames predictable and DB-safe.
+    cleaned = ''.join(ch for ch in base if ch.isalnum() or ch in ['.', '_', '-']).strip('._-')
+    if not cleaned:
+        cleaned = "user"
+
+    candidate = cleaned[:80]
+    if not Users.query.filter_by(username=candidate).first():
+        return candidate
+
+    suffix = 1
+    while True:
+        suffix_str = str(suffix)
+        trimmed = cleaned[: max(1, 80 - len(suffix_str) - 1)]
+        candidate = f"{trimmed}_{suffix_str}"
+        if not Users.query.filter_by(username=candidate).first():
+            return candidate
+        suffix += 1
 
 
 @api_auth.route("/register", methods=["POST"])
@@ -132,7 +162,7 @@ def change_password():
 
 @api_auth.route("/google-login", methods=["GET"])
 def google_login():
-    base_url = os.getenv("BASE_URL", "http://localhost:5000")
+    base_url = os.getenv("BASE_URL", request.host_url.rstrip("/"))
     redirect_uri = f"{base_url}{url_for('api_auth.google_authorize')}"
     nonce = base64.urlsafe_b64encode(os.urandom(16)).decode()
     session["nonce"] = nonce
@@ -141,29 +171,42 @@ def google_login():
 
 @api_auth.route("/google-authorize", methods=["GET"])
 def google_authorize():
-    token = oauth.google.authorize_access_token()  # type: ignore
-    nonce = session.pop("nonce", None)
-    user_info = oauth.google.parse_id_token(token, nonce=nonce)  # type: ignore
+    try:
+        token = oauth.google.authorize_access_token()  # type: ignore
+        nonce = session.pop("nonce", None)
+        user_info = oauth.google.parse_id_token(token, nonce=nonce)  # type: ignore
+    except Exception:
+        return _oauth_error_redirect("Google sign-in failed. Please try again.")
 
-    user = Users.query.filter_by(email=user_info["email"]).first()
+    email = (user_info.get("email") or "").strip().lower() if user_info else ""
+    full_name = (user_info.get("name") or "").strip() if user_info else ""
+
+    if not email:
+        return _oauth_error_redirect("Google account email was not provided.")
+
+    user = Users.query.filter_by(email=email).first()
 
     if not user:
-        username = user_info["email"].split("@")[0]
-        if Users.query.filter_by(username=username).first():
-            username = user_info["name"]
+        username_seed = email.split("@")[0]
+        if full_name:
+            username_seed = username_seed or full_name
+        username = _generate_unique_username(username_seed)
 
         user = Users(
-            email=user_info["email"],  # type: ignore
+            email=email,  # type: ignore
             username=username,  # type: ignore
-            full_name=user_info["name"],  # type: ignore
+            full_name=full_name or username,  # type: ignore
             password=None,  # type: ignore
             role="user",  # type: ignore
         )
         db.session.add(user)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            return _oauth_error_redirect("Could not complete Google sign-in. Please try again.")
 
     access_token = create_access_token(identity=str(user.id))
 
     # Redirect to Vue frontend with token as query param
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-    return redirect(f"{frontend_url}/auth/callback?token={access_token}")
+    return redirect(f"{_normalized_frontend_url()}/auth/callback?token={access_token}")

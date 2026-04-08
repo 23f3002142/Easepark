@@ -19,6 +19,8 @@ export interface AdminLot {
   total_spots: number
   occupied_spots: number
   available_spots: number
+  lot_type: string | null
+  amenities: string | null
   spots: AdminSpotBrief[]
 }
 
@@ -32,6 +34,8 @@ export interface AdminLotDetail {
   latitude: number | null
   longitude: number | null
   is_active: boolean
+  lot_type: string | null
+  amenities: string | null
   spots: Array<{
     id: number
     spot_number: string
@@ -96,6 +100,8 @@ export async function addLot(payload: {
   max_spots: number
   latitude?: number | null
   longitude?: number | null
+  lot_type?: string
+  amenities?: string
 }): Promise<{ message: string; lot_id: number }> {
   const { data } = await api.post('/admin/lots', payload)
   return data
@@ -114,6 +120,8 @@ export async function editLot(lotId: number, payload: {
   max_spots?: number
   latitude?: number | null
   longitude?: number | null
+  lot_type?: string
+  amenities?: string
 }): Promise<{ message: string }> {
   const { data } = await api.put(`/admin/lots/${lotId}`, payload)
   return data

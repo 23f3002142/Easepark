@@ -4,7 +4,7 @@ import { RouterLink } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import PaginationBar from '@/components/PaginationBar.vue'
-import { getHistory, getReceiptUrl, downloadHistoryCsv } from '@/api/user.api'
+import { getHistory, downloadReceipt, downloadHistoryCsv } from '@/api/user.api'
 import type { Reservation, Pagination } from '@/types/parking'
 import { Download } from 'lucide-vue-next'
 
@@ -48,6 +48,18 @@ async function handleCsvDownload() {
     error.value = 'Failed to download CSV'
   } finally {
     csvLoading.value = false
+  }
+}
+
+const receiptLoadingId = ref<number | null>(null)
+async function handleReceiptDownload(reservationId: number) {
+  receiptLoadingId.value = reservationId
+  try {
+    await downloadReceipt(reservationId)
+  } catch {
+    error.value = 'Failed to download receipt'
+  } finally {
+    receiptLoadingId.value = null
   }
 }
 
@@ -125,14 +137,14 @@ function statusColor(status: string) {
                     >
                       Release & Pay
                     </RouterLink>
-                    <a
+                    <button
                       v-if="res.status === 'completed'"
-                      :href="getReceiptUrl(res.id)"
-                      target="_blank"
+                      @click="handleReceiptDownload(res.id)"
+                      :disabled="receiptLoadingId === res.id"
                       class="px-3 py-1 bg-black text-white text-xs font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors inline-block"
                     >
-                      Receipt
-                    </a>
+                      {{ receiptLoadingId === res.id ? 'Downloading...' : 'Receipt' }}
+                    </button>
                     <span v-if="res.status === 'cancelled'" class="text-xs text-gray-400">—</span>
                   </div>
                 </td>
@@ -183,14 +195,14 @@ function statusColor(status: string) {
               >
                 Release & Pay
               </RouterLink>
-              <a
+              <button
                 v-if="res.status === 'completed'"
-                :href="getReceiptUrl(res.id)"
-                target="_blank"
+                @click="handleReceiptDownload(res.id)"
+                :disabled="receiptLoadingId === res.id"
                 class="flex-1 py-2 bg-black text-white text-xs font-bold uppercase tracking-wider text-center hover:bg-gray-800 transition-colors"
               >
-                Receipt
-              </a>
+                {{ receiptLoadingId === res.id ? 'Downloading...' : 'Receipt' }}
+              </button>
             </div>
           </div>
         </div>

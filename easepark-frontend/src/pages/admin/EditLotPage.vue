@@ -13,6 +13,20 @@ const route = useRoute()
 const router = useRouter()
 const lotId = Number(route.params.id)
 
+const LOT_TYPES = [
+  { value: 'open', label: 'Open Air' },
+  { value: 'covered', label: 'Covered' },
+  { value: 'shaded', label: 'Shaded' },
+  { value: 'underground', label: 'Underground' },
+  { value: 'multi_level', label: 'Multi-Level' },
+]
+
+const AMENITY_PRESETS = [
+  'Cafe', 'EV Charging', 'Fuel Station Nearby', 'Shopping Mall Nearby',
+  'CCTV Surveillance', 'Restrooms', 'Wheelchair Accessible', 'Valet Parking',
+  '24/7 Open', 'Car Wash',
+]
+
 const form = ref({
   parking_name: '',
   price: 0,
@@ -21,7 +35,28 @@ const form = ref({
   max_spots: 0,
   latitude: null as number | null,
   longitude: null as number | null,
+  lot_type: '',
+  amenities: '',
 })
+const selectedAmenities = ref<string[]>([])
+const customAmenity = ref('')
+
+function toggleAmenity(a: string) {
+  const idx = selectedAmenities.value.indexOf(a)
+  if (idx >= 0) selectedAmenities.value.splice(idx, 1)
+  else selectedAmenities.value.push(a)
+  form.value.amenities = selectedAmenities.value.join(',')
+}
+
+function addCustomAmenity() {
+  const val = customAmenity.value.trim()
+  if (val && !selectedAmenities.value.includes(val)) {
+    selectedAmenities.value.push(val)
+    form.value.amenities = selectedAmenities.value.join(',')
+  }
+  customAmenity.value = ''
+}
+
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
@@ -37,6 +72,11 @@ onMounted(async () => {
       max_spots: res.lot.max_spots,
       latitude: res.lot.latitude,
       longitude: res.lot.longitude,
+      lot_type: res.lot.lot_type || '',
+      amenities: res.lot.amenities || '',
+    }
+    if (res.lot.amenities) {
+      selectedAmenities.value = res.lot.amenities.split(',').map((s: string) => s.trim()).filter(Boolean)
     }
   } catch (err: any) {
     error.value = err.response?.data?.error || 'Failed to load lot'
@@ -96,6 +136,65 @@ const fields = [
               :step="field.type === 'number' ? 'any' : undefined"
               class="w-full px-4 py-3 border-2 border-black focus:ring-0 focus:border-gray-600 outline-none transition-all text-sm font-medium"
             />
+          </div>
+
+          <!-- Lot Type -->
+          <div>
+            <label class="block text-sm font-bold text-black uppercase tracking-wider mb-2">Lot Type</label>
+            <select
+              v-model="form.lot_type"
+              class="w-full px-4 py-3 border-2 border-black focus:ring-0 focus:border-gray-600 outline-none transition-all text-sm font-medium bg-white"
+            >
+              <option value="">Select type...</option>
+              <option v-for="t in LOT_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
+            </select>
+          </div>
+
+          <!-- Amenities -->
+          <div>
+            <label class="block text-sm font-bold text-black uppercase tracking-wider mb-2">Amenities / Features</label>
+            <div class="flex flex-wrap gap-2 mb-3">
+              <button
+                v-for="a in AMENITY_PRESETS"
+                :key="a"
+                type="button"
+                @click="toggleAmenity(a)"
+                :class="[
+                  'px-3 py-1.5 text-xs font-bold border-2 transition-colors',
+                  selectedAmenities.includes(a)
+                    ? 'bg-black text-white border-black'
+                    : 'bg-white text-black border-gray-300 hover:border-black'
+                ]"
+              >
+                {{ a }}
+              </button>
+            </div>
+            <div class="flex gap-2">
+              <input
+                v-model="customAmenity"
+                type="text"
+                placeholder="Add custom amenity..."
+                class="flex-1 px-4 py-2 border-2 border-black text-sm font-medium focus:ring-0 focus:border-gray-600 outline-none"
+                @keydown.enter.prevent="addCustomAmenity"
+              />
+              <button
+                type="button"
+                @click="addCustomAmenity"
+                class="px-4 py-2 bg-black text-white text-xs font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors"
+              >
+                Add
+              </button>
+            </div>
+            <div v-if="selectedAmenities.length" class="mt-2 flex flex-wrap gap-1.5">
+              <span
+                v-for="a in selectedAmenities"
+                :key="a"
+                class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 border border-gray-300 text-xs font-bold"
+              >
+                {{ a }}
+                <button type="button" @click="toggleAmenity(a)" class="text-gray-500 hover:text-red-600">&times;</button>
+              </span>
+            </div>
           </div>
 
           <!-- Map Picker for location -->

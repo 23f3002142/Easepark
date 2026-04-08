@@ -4,8 +4,9 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
 import {
   CircleParking, Menu, X, LayoutDashboard, Car, Clock,
-  BarChart3, User, Settings, Users, Search, LogOut, ChevronDown
+  BarChart3, User, Settings, Users, Search, LogOut, ChevronDown, Bell
 } from 'lucide-vue-next'
+import NotificationBell from '@/components/NotificationBell.vue'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -74,6 +75,7 @@ function logout() {
 
           <!-- Desktop Profile -->
           <div class="hidden lg:flex items-center gap-4">
+            <NotificationBell v-if="!isAdmin" />
             <div class="text-right mr-2">
               <p class="text-sm font-bold text-black">{{ authStore.user?.username }}</p>
               <p class="text-xs text-gray-500 font-mono">{{ authStore.user?.email }}</p>
@@ -156,6 +158,7 @@ function logout() {
             </div>
             <RouterLink :to="isAdmin ? '/admin/profile' : '/profile'" @click="mobileOpen = false" class="block px-4 py-2 font-bold text-gray-800 hover:bg-gray-100">View Profile</RouterLink>
             <RouterLink :to="isAdmin ? '/admin/profile/edit' : '/profile/edit'" @click="mobileOpen = false" class="block px-4 py-2 font-bold text-gray-800 hover:bg-gray-100">Edit Profile</RouterLink>
+            <RouterLink v-if="!isAdmin" to="/notifications" @click="mobileOpen = false" class="block px-4 py-2 font-bold text-gray-800 hover:bg-gray-100"><Bell :size="14" class="inline mr-2" />Notifications</RouterLink>
             <button @click="logout" class="w-full text-left px-4 py-2 font-bold text-red-600 hover:bg-red-50">Logout</button>
           </div>
         </transition>

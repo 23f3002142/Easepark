@@ -25,15 +25,26 @@ const hasRegistrations = computed(() => data.value && data.value.registration_la
 const hasTopLots = computed(() => data.value && data.value.top_lot_labels?.length > 0)
 const hasAvgTime = computed(() => data.value && data.value.avg_time_labels?.length > 0)
 
+const gridColor = 'rgba(148, 163, 184, 0.22)'
+const axisTickColor = '#334155'
+const monthlyPalette = ['#2563EB', '#0EA5E9', '#14B8A6', '#22C55E', '#84CC16', '#F59E0B', '#F97316']
+const registrationsPalette = ['#8B5CF6', '#A855F7', '#EC4899', '#F43F5E', '#6366F1']
+const topLotsPalette = ['#0D9488', '#14B8A6', '#06B6D4', '#0284C7', '#22C55E', '#65A30D']
+const avgTimePalette = ['#F59E0B', '#F97316', '#FB7185', '#A855F7', '#6366F1']
+
+function getCycledColors(length: number, palette: string[]) {
+  return Array.from({ length }, (_, idx) => palette[idx % palette.length])
+}
+
 onMounted(async () => {
   try {
     data.value = await getSummary()
-    await nextTick()
-    renderCharts()
   } catch (err: any) {
     error.value = err.response?.data?.error || 'Failed to load summary'
   } finally {
     loading.value = false
+    await nextTick()
+    renderCharts()
   }
 })
 
@@ -49,14 +60,27 @@ function renderCharts() {
         labels: ['Occupied', 'Available'],
         datasets: [{
           data: [data.value.occupied_spots, data.value.available_spots],
-          backgroundColor: ['#000', '#ccc'],
-          borderColor: ['#000', '#999'],
-          borderWidth: 1
+          backgroundColor: ['#F97316', '#22C55E'],
+          borderColor: ['#C2410C', '#15803D'],
+          borderWidth: 1,
+          hoverOffset: 10,
+          spacing: 2
         }]
       },
       options: {
         responsive: true,
-        plugins: { legend: { position: 'bottom' }, title: { display: true, text: 'Current Parking Occupancy', font: { weight: 'bold' } } }
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { color: axisTickColor }
+          },
+          title: {
+            display: true,
+            text: 'Current Parking Occupancy',
+            color: '#0F172A',
+            font: { weight: 'bold' }
+          }
+        }
       }
     }))
   }
@@ -69,15 +93,35 @@ function renderCharts() {
         datasets: [{
           label: 'Vehicles Parked',
           data: data.value.bookings_per_month,
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          borderColor: '#000',
-          borderWidth: 1
+          backgroundColor: getCycledColors(data.value.bookings_per_month.length, monthlyPalette),
+          borderColor: '#1E3A8A',
+          borderWidth: 1,
+          borderRadius: 8,
+          maxBarThickness: 40
         }]
       },
       options: {
         responsive: true,
-        plugins: { title: { display: true, text: 'Monthly Parking Usage', font: { weight: 'bold' } } },
-        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        plugins: {
+          legend: { display: false },
+          title: {
+            display: true,
+            text: 'Monthly Parking Usage',
+            color: '#0F172A',
+            font: { weight: 'bold' }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: axisTickColor },
+            grid: { color: gridColor }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { precision: 0, color: axisTickColor },
+            grid: { color: gridColor }
+          }
+        }
       }
     }))
   }
@@ -90,15 +134,35 @@ function renderCharts() {
         datasets: [{
           label: 'New Users',
           data: data.value.registration_data,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          borderColor: '#000',
-          borderWidth: 1
+          backgroundColor: getCycledColors(data.value.registration_data.length, registrationsPalette),
+          borderColor: '#6D28D9',
+          borderWidth: 1,
+          borderRadius: 8,
+          maxBarThickness: 40
         }]
       },
       options: {
         responsive: true,
-        plugins: { title: { display: true, text: 'User Registration Stats', font: { weight: 'bold' } } },
-        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        plugins: {
+          legend: { display: false },
+          title: {
+            display: true,
+            text: 'User Registration Stats',
+            color: '#0F172A',
+            font: { weight: 'bold' }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: axisTickColor },
+            grid: { color: gridColor }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { stepSize: 1, color: axisTickColor },
+            grid: { color: gridColor }
+          }
+        }
       }
     }))
   }
@@ -111,16 +175,36 @@ function renderCharts() {
         datasets: [{
           label: 'Usage Count',
           data: data.value.top_lot_data,
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          borderColor: '#000',
-          borderWidth: 1
+          backgroundColor: getCycledColors(data.value.top_lot_data.length, topLotsPalette),
+          borderColor: '#0F766E',
+          borderWidth: 1,
+          borderRadius: 8,
+          maxBarThickness: 32
         }]
       },
       options: {
         indexAxis: 'y',
         responsive: true,
-        plugins: { title: { display: true, text: 'Top Parking Locations by Usage', font: { weight: 'bold' } } },
-        scales: { x: { beginAtZero: true } }
+        plugins: {
+          legend: { display: false },
+          title: {
+            display: true,
+            text: 'Top Parking Locations by Usage',
+            color: '#0F172A',
+            font: { weight: 'bold' }
+          }
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            ticks: { color: axisTickColor },
+            grid: { color: gridColor }
+          },
+          y: {
+            ticks: { color: axisTickColor },
+            grid: { color: gridColor }
+          }
+        }
       }
     }))
   }
@@ -133,15 +217,35 @@ function renderCharts() {
         datasets: [{
           label: 'Avg Parking Time (hrs)',
           data: data.value.avg_time_data,
-          backgroundColor: 'rgba(100,100,100,0.6)',
-          borderColor: '#333',
-          borderWidth: 1
+          backgroundColor: getCycledColors(data.value.avg_time_data.length, avgTimePalette),
+          borderColor: '#C2410C',
+          borderWidth: 1,
+          borderRadius: 8,
+          maxBarThickness: 36
         }]
       },
       options: {
         responsive: true,
-        plugins: { title: { display: true, text: 'Average Parking Time per Lot (hours)', font: { weight: 'bold' } } },
-        scales: { y: { beginAtZero: true } }
+        plugins: {
+          legend: { display: false },
+          title: {
+            display: true,
+            text: 'Average Parking Time per Lot (hours)',
+            color: '#0F172A',
+            font: { weight: 'bold' }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: axisTickColor },
+            grid: { color: gridColor }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { color: axisTickColor },
+            grid: { color: gridColor }
+          }
+        }
       }
     }))
   }
@@ -171,7 +275,7 @@ function renderCharts() {
       <!-- First Row: Occupancy + Monthly + Registration -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
         <!-- Occupancy Doughnut -->
-        <div class="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+        <div class="bg-gradient-to-br from-white to-orange-50 border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
           <template v-if="hasOccupancy">
             <canvas ref="occupancyRef"></canvas>
           </template>
@@ -184,7 +288,7 @@ function renderCharts() {
 
         <div class="space-y-8">
           <!-- Monthly Parking -->
-          <div class="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+          <div class="bg-gradient-to-br from-white to-blue-50 border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             <template v-if="hasMonthly">
               <canvas ref="monthlyRef"></canvas>
             </template>
@@ -196,7 +300,7 @@ function renderCharts() {
           </div>
 
           <!-- User Registrations -->
-          <div class="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+          <div class="bg-gradient-to-br from-white to-violet-50 border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             <template v-if="hasRegistrations">
               <canvas ref="registrationRef"></canvas>
             </template>
@@ -212,12 +316,12 @@ function renderCharts() {
       <!-- Divider -->
       <div class="text-center mb-8">
         <h2 class="text-2xl font-bold text-black uppercase tracking-tighter">Advanced Insights</h2>
-        <div class="w-24 h-1 bg-black mx-auto mt-2"></div>
+        <div class="w-24 h-1 bg-gradient-to-r from-emerald-500 via-blue-500 to-violet-500 mx-auto mt-2"></div>
       </div>
 
       <!-- Second Row: Top Lots + Avg Time -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-        <div class="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+        <div class="bg-gradient-to-br from-white to-teal-50 border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
           <template v-if="hasTopLots">
             <canvas ref="topLotsRef"></canvas>
           </template>
@@ -231,7 +335,7 @@ function renderCharts() {
           </div>
         </div>
 
-        <div class="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+        <div class="bg-gradient-to-br from-white to-amber-50 border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
           <template v-if="hasAvgTime">
             <canvas ref="avgTimeRef"></canvas>
           </template>

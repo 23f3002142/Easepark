@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRoute, RouterLink } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
 import { useToast } from '@/composables/useToast'
+import { getGoogleLoginUrl } from '@/api/auth.api'
 import { CircleParking, Eye, EyeOff } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -13,6 +14,11 @@ const toast = useToast()
 onMounted(() => {
   if (route.query.registered === 'true') {
     toast.success('Registration successful! Please sign in.')
+  }
+
+  const oauthError = route.query.oauth_error
+  if (typeof oauthError === 'string' && oauthError.trim()) {
+    error.value = oauthError
   }
 })
 
@@ -46,7 +52,7 @@ async function handleLogin() {
 }
 
 function googleLogin() {
-  window.location.href = '/api/auth/google-login'
+  window.location.href = getGoogleLoginUrl()
 }
 </script>
 

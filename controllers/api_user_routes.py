@@ -3,7 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.security import check_password_hash
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
-from models.user_model import Users, ParkingLot, ParkingSpot, Reservation, db, Payment
+from models.user_model import Users, ParkingLot, ParkingSpot, Reservation, db, Payment, Notification
 from datetime import datetime, timedelta
 from collections import defaultdict
 from zoneinfo import ZoneInfo
@@ -234,6 +234,8 @@ def get_lots():
             "max_spots": lot.max_spots,
             "total_spots": total or 0,
             "free_spots": free or 0,
+            "lot_type": lot.lot_type,
+            "amenities": lot.amenities,
         })
 
     return jsonify({
@@ -275,6 +277,8 @@ def get_all_lots_for_map():
             "longitude": lot.longitude,
             "max_spots": lot.max_spots,
             "free_spots": free or 0,
+            "lot_type": lot.lot_type,
+            "amenities": lot.amenities,
         })
     return jsonify({"lots": lots_data}), 200
 
@@ -341,6 +345,8 @@ def get_nearby_lots():
             "max_spots": lot.max_spots,
             "free_spots": free,
             "distance_km": round(dist, 2),
+            "lot_type": lot.lot_type,
+            "amenities": lot.amenities,
         })
 
     # Sort by distance ascending, take top N
@@ -467,6 +473,7 @@ def reserve_spot(lot_id):
     spot.status = 'O'
     user.total_bookings += 1
     db.session.add(reservation)
+    _notify(user.id, 'Booking Confirmed', f'Spot {spot.spot_number} at {lot.parking_name} reserved for vehicle {vehicle_number}.', 'success')
     db.session.commit()
     _invalidate_user_cache(user.id)
 
@@ -605,6 +612,7 @@ def cancel_booking(reservation_id):
     reservation.total_cost = 0
     reservation.otp_secret = None
 
+    _notify(user.id, 'Booking Cancelled', f'Your booking (#{reservation_id}) has been cancelled. No charges applied.', 'warning')
     db.session.commit()
     _invalidate_user_cache(user.id)
 
@@ -820,6 +828,8 @@ def release_spot_free(reservation_id):
     if spot:
         spot.status = 'A'
 
+    lot_name = lot.parking_name if lot else 'Unknown'
+    _notify(user.id, 'Spot Released', f'Spot released at {lot_name}. Duration: {duration}h, Cost: ₹{total_cost}.', 'success')
     db.session.commit()
     _invalidate_user_cache(user.id)
 
@@ -945,12 +955,15 @@ def payment_verify():
         status='success',  # type: ignore
     )
     db.session.add(payment)
+
+    lot = db.session.get(ParkingLot, spot.lot_id) if spot else None
+    lot_name = lot.parking_name if lot else 'Unknown'
+    _notify(user.id, 'Payment Successful', f'Payment of ₹{total_cost} for {lot_name} completed. Spot released.', 'success')
     db.session.commit()
     _invalidate_user_cache(user.id)
 
     # Send receipt email
     try:
-        lot = db.session.get(ParkingLot, spot.lot_id) if spot else None
         if lot and spot:
             send_receipt_email(user, reservation, lot, spot)
     except Exception as e:
@@ -1345,3 +1358,95 @@ def summary_report():
         f'attachment; filename=easepark_report_{from_date_str}_to_{to_date_str}.pdf'
     )
     return response
+
+
+# ─── Notifications ───
+def _notify(user_id, title, message, ntype='info'):
+    """Helper to create a notification (does NOT commit — caller should commit)."""
+    n = Notification(user_id=user_id, title=title, message=message, type=ntype)  # type: ignore
+    db.session.add(n)
+    return n
+
+
+@api_user_blueprint.route('/notifications', methods=['GET'])
+@jwt_required()
+def get_notifications():
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+
+    q = Notification.query.filter_by(user_id=user.id).order_by(Notification.created_at.desc())
+    pagination = q.paginate(page=page, per_page=per_page, error_out=False)
+
+    unread_count = Notification.query.filter_by(user_id=user.id, is_read=False).count()
+
+    items = []
+    for n in pagination.items:
+        items.append({
+            "id": n.id,
+            "title": n.title,
+            "message": n.message,
+            "type": n.type,
+            "is_read": n.is_read,
+            "created_at": n.created_at.isoformat() if n.created_at else None,
+        })
+
+    return jsonify({
+        "notifications": items,
+        "unread_count": unread_count,
+        "pagination": {
+            "page": pagination.page,
+            "per_page": pagination.per_page,
+            "total_pages": pagination.pages,
+            "total_items": pagination.total,
+        }
+    }), 200
+
+
+@api_user_blueprint.route('/notifications/unread-count', methods=['GET'])
+@jwt_required()
+def notification_unread_count():
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 403
+    count = Notification.query.filter_by(user_id=user.id, is_read=False).count()
+    return jsonify({"unread_count": count}), 200
+
+
+@api_user_blueprint.route('/notifications/mark-read', methods=['POST'])
+@jwt_required()
+def mark_notifications_read():
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    data = request.get_json() or {}
+    ids = data.get('ids')  # optional list of IDs; if absent mark ALL read
+
+    if ids:
+        Notification.query.filter(
+            Notification.user_id == user.id,
+            Notification.id.in_(ids),
+        ).update({"is_read": True}, synchronize_session=False)
+    else:
+        Notification.query.filter_by(user_id=user.id, is_read=False).update(
+            {"is_read": True}, synchronize_session=False
+        )
+
+    db.session.commit()
+    return jsonify({"message": "Notifications marked as read"}), 200
+
+
+@api_user_blueprint.route('/notifications/clear', methods=['DELETE'])
+@jwt_required()
+def clear_notifications():
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    Notification.query.filter_by(user_id=user.id).delete()
+    db.session.commit()
+    return jsonify({"message": "All notifications cleared"}), 200

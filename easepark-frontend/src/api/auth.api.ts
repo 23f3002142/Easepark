@@ -1,6 +1,16 @@
 import api from './axios'
 import type { User } from '@/types/user'
 
+function normalizedApiBaseUrl(): string {
+  const raw = String(import.meta.env.VITE_API_URL || '/api').trim()
+  if (!raw) return '/api'
+  return raw.replace(/\/+$/, '')
+}
+
+export function getGoogleLoginUrl(): string {
+  return `${normalizedApiBaseUrl()}/auth/google-login`
+}
+
 export async function login(data: { username: string; password: string }): Promise<{ token: string; user: User }> {
   const res = await api.post('/auth/login', data)
   return res.data

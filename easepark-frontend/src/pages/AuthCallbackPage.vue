@@ -9,16 +9,23 @@ const authStore = useAuthStore()
 
 onMounted(async () => {
   const token = route.query.token as string
-  if (token) {
-    authStore.setToken(token)
-    await authStore.fetchProfile()
-    if (authStore.isAdmin) {
-      router.push('/admin')
-    } else {
-      router.push('/dashboard')
-    }
+  if (!token) {
+    router.replace({ name: 'login', query: { oauth_error: 'Missing OAuth token. Please try again.' } })
+    return
+  }
+
+  authStore.setToken(token)
+  await authStore.fetchProfile()
+
+  if (!authStore.user) {
+    router.replace({ name: 'login', query: { oauth_error: 'Google sign-in failed. Please try again.' } })
+    return
+  }
+
+  if (authStore.isAdmin) {
+    router.replace('/admin')
   } else {
-    router.push('/login')
+    router.replace('/dashboard')
   }
 })
 </script>

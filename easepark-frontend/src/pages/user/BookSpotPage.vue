@@ -155,6 +155,10 @@ async function handleReserve() {
             >
               <td class="px-4 py-4">
                 <p class="font-bold text-black">{{ lot.name || lot.parking_name }}</p>
+                <span v-if="lot.lot_type" class="inline-block mt-1 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-gray-100 border border-gray-300 text-gray-600">{{ lot.lot_type.replace('_', ' ') }}</span>
+                <div v-if="lot.amenities" class="flex flex-wrap gap-1 mt-1.5">
+                  <span v-for="a in lot.amenities.split(',')" :key="a" class="px-1.5 py-0.5 text-[10px] font-bold bg-black/5 border border-gray-200 text-gray-500">{{ a.trim() }}</span>
+                </div>
               </td>
               <td class="px-4 py-4 text-sm text-gray-600 hidden md:table-cell">{{ lot.address }}</td>
               <td class="px-4 py-4 text-center font-mono text-sm">{{ lot.pin_code }}</td>
