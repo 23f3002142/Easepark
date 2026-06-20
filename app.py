@@ -2,19 +2,14 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from flask import Flask,render_template,flash, redirect, request, url_for, jsonify
-from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
-from extensions import login_manager, mail,limiter,oauth, jwt, cors
+from flask import Flask, request, jsonify
+from werkzeug.security import generate_password_hash
+from extensions import mail, limiter, oauth, jwt, cors
 from models import db
 from models.user_model import Users
-from controllers.admin_routes import admin_blueprint
-from controllers.user_routes import user_blueprint
-from controllers.auth_routes import auth
 from controllers.api_auth_routes import api_auth
 from controllers.api_user_routes import api_user_blueprint
 from controllers.api_admin_routes import api_admin_blueprint
-from flask_mail import Mail
 from flask_limiter.errors import RateLimitExceeded
 from flask_migrate import Migrate
 from datetime import timedelta
@@ -94,17 +89,7 @@ cors.init_app(app, resources={r"/api/*": {"origins": allowed_origins}}, supports
 limiter.init_app(app)
 @app.errorhandler(RateLimitExceeded)
 def ratelimit_handler(e):
-    if request.path.startswith('/api/'):
-        return jsonify({"error": "Too many requests. Please try again later."}), 429
-    flash("Too many requests. Please try again later.", "danger")
-    return redirect(url_for("user.dashboard"))
-
-#Login Manager
-login_manager.init_app(app)
-login_manager.login_view = 'auth.login'# type: ignore
-@login_manager.user_loader
-def load_user(user_id):
-    return db.session.get(Users, int(user_id))
+    return jsonify({"error": "Too many requests. Please try again later."}), 429
 
 #Authlib (for OAuth)
 oauth.init_app(app) 
@@ -131,11 +116,6 @@ app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv("MAIL_DEFAULT_SENDER")
 mail.init_app(app)
 
-
-#Blueprint (legacy server-rendered)
-app.register_blueprint(auth)
-app.register_blueprint(user_blueprint)
-app.register_blueprint(admin_blueprint)
 
 #API Blueprints (JSON for Vue frontend)
 app.register_blueprint(api_auth)

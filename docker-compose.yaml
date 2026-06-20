@@ -1,25 +1,44 @@
-
 services:
-  web:
+  # ── Flask Backend ──
+  backend:
     build: .
-    container_name: easepark_web
+    container_name: easepark_backend
     env_file: .env
     environment:
       - REDIS_URL=redis://redis:6379/0
+      - FRONTEND_URL=http://localhost:5173
+      - BASE_URL=
     ports:
       - "5000:5000"
     volumes:
       - .:/app
+      - /app/venv
+      - /app/__pycache__
     depends_on:
       - redis
-    command: gunicorn --bind 0.0.0.0:5000 app:app
+    # Use Flask dev server for local development (auto-reload on code changes)
+    command: flask run --host=0.0.0.0 --port=5000 --debug
 
+  # ── Vue Frontend (Vite dev server) ──
+  frontend:
+    build:
+      context: ./easepark-frontend
+      dockerfile: Dockerfile.dev
+    container_name: easepark_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./easepark-frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=/api
+      - VITE_PROXY_TARGET=http://backend:5000
+    depends_on:
+      - backend
+
+  # ── Redis ──
   redis:
-    # Use the official Redis image from Docker Hub, with the lightweight Alpine base.
     image: "redis:alpine"
-    # Name the container for easier identification.
     container_name: easepark_redis
-    # Expose the Redis port so you could potentially connect with a local client if needed.
     ports:
       - "6379:6379"
-

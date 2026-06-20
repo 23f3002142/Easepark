@@ -1,11 +1,8 @@
-from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import UserMixin
 from datetime import datetime
 from models import db
 
-
-class Users(UserMixin, db.Model):
+class Users(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username= db.Column(db.String(100) , unique=True , nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=True)
@@ -21,7 +18,7 @@ class Users(UserMixin, db.Model):
 
     reservations = db.relationship('Reservation', backref='user', lazy='dynamic')
 
-class ParkingLot(UserMixin, db.Model):
+class ParkingLot(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     parking_name = db.Column(db.String(150), nullable=False)
     price = db.Column(db.Float, nullable=False)
@@ -40,7 +37,7 @@ class ParkingLot(UserMixin, db.Model):
     spots = db.relationship('ParkingSpot', backref='lot', cascade="all, delete", lazy='dynamic')
 
 
-class ParkingSpot(UserMixin, db.Model):
+class ParkingSpot(db.Model):
     __table_args__ = (
         db.Index('ix_spot_lot_status', 'lot_id', 'status'),
     )
@@ -51,7 +48,7 @@ class ParkingSpot(UserMixin, db.Model):
     is_active = db.Column(db.Boolean, default=True) # this show wether the spot is accessible or disabled by the admin
     reservations = db.relationship('Reservation', backref='spot', lazy='dynamic')
 
-class Reservation(UserMixin, db.Model):
+class Reservation(db.Model):
     __table_args__ = (
         db.Index('ix_reservation_user_status', 'user_id', 'status'),
     )
