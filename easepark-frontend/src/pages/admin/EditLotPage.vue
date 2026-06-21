@@ -60,6 +60,7 @@ function addCustomAmenity() {
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
+const fieldErrors = ref<Record<string, string[]>>({})
 
 onMounted(async () => {
   try {
@@ -88,12 +89,18 @@ onMounted(async () => {
 async function handleSubmit() {
   error.value = ''
   saving.value = true
+  fieldErrors.value = {}
   try {
     await editLot(lotId, form.value)
     toast.success('Parking lot updated successfully!')
     router.push('/admin')
   } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to update lot'
+    if (err.response?.status === 422) {
+      fieldErrors.value = err.response.data.errors || {}
+      error.value = 'Validation failed. Please correct the highlighted fields.'
+    } else {
+      error.value = err.response?.data?.error || 'Failed to update lot'
+    }
   } finally {
     saving.value = false
   }
@@ -136,6 +143,9 @@ const fields = [
               :step="field.type === 'number' ? 'any' : undefined"
               class="w-full px-4 py-3 border-2 border-black focus:ring-0 focus:border-gray-600 outline-none transition-all text-sm font-medium"
             />
+            <p v-if="fieldErrors[field.key]" class="mt-1 text-xs text-red-600 font-bold">
+              {{ fieldErrors[field.key].join(', ') }}
+            </p>
           </div>
 
           <!-- Lot Type -->

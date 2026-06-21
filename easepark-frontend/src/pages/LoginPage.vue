@@ -27,6 +27,7 @@ const password = ref('')
 const showPassword = ref(false)
 const error = ref('')
 const loading = ref(false)
+const fieldErrors = ref<Record<string, string[]>>({})
 
 async function handleLogin() {
   error.value = ''
@@ -36,6 +37,7 @@ async function handleLogin() {
   }
 
   loading.value = true
+  fieldErrors.value = {}
   try {
     await authStore.login(username.value, password.value)
     toast.success('Logged in successfully!')
@@ -45,7 +47,12 @@ async function handleLogin() {
       router.push('/dashboard')
     }
   } catch (err: any) {
-    error.value = err.response?.data?.error || 'Login failed. Please try again.'
+    if (err.response?.status === 422) {
+      fieldErrors.value = err.response.data.errors || {}
+      error.value = 'Validation failed. Please correct the highlighted fields.'
+    } else {
+      error.value = err.response?.data?.error || 'Login failed. Please try again.'
+    }
   } finally {
     loading.value = false
   }
@@ -84,13 +91,16 @@ function googleLogin() {
 
         <form @submit.prevent="handleLogin" class="space-y-5">
           <div>
-            <label class="block text-sm font-bold text-black uppercase tracking-wider mb-2">Username</label>
+            <label class="block text-sm font-bold text-black uppercase tracking-wider mb-2">Username or Email</label>
             <input
               v-model="username"
               type="text"
-              placeholder="Enter your username"
+              placeholder="Enter your username or email"
               class="w-full px-4 py-3 border-2 border-black focus:ring-0 focus:border-gray-600 outline-none transition-all text-sm font-medium"
             />
+            <p v-if="fieldErrors.username" class="mt-1 text-xs text-red-600 font-bold">
+              {{ fieldErrors.username.join(', ') }}
+            </p>
           </div>
           <div>
             <label class="block text-sm font-bold text-black uppercase tracking-wider mb-2">Password</label>
@@ -110,6 +120,13 @@ function googleLogin() {
                 <Eye v-else :size="18" />
               </button>
             </div>
+            <p v-if="fieldErrors.password" class="mt-1 text-xs text-red-600 font-bold">
+              {{ fieldErrors.password.join(', ') }}
+            </p>
+          </div>
+
+          <div class="text-right">
+            <RouterLink to="/forgot-password" class="text-xs text-gray-500 hover:text-black font-medium uppercase tracking-wider">Forgot Password?</RouterLink>
           </div>
 
           <button

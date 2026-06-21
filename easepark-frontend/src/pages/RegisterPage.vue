@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.store'
 import { useToast } from '@/composables/useToast'
-import { getGoogleLoginUrl } from '@/api/auth.api'
-import { CircleParking, Eye, EyeOff } from 'lucide-vue-next'
+import { getGoogleLoginUrl, sendVerificationOtp, verifyRegistrationOtp } from '@/api/auth.api'
+import { CircleParking, Eye, EyeOff, CheckCircle, Mail } from 'lucide-vue-next'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -18,11 +18,108 @@ const showPassword = ref(false)
 const error = ref('')
 const loading = ref(false)
 
+// ── Inline email verification state ────────────────────────────────────────
+const emailVerified = ref(false)
+const verifyLoading = ref(false)
+const verifyError = ref('')
+const otpSent = ref(false)
+const otpCode = ref('')
+const otpVerifying = ref(false)
+const resendCooldown = ref(0)
+const fieldErrors = ref<Record<string, string[]>>({})
+
+let cooldownTimer: ReturnType<typeof setInterval> | null = null
+
+// Store the verified OTP so we can send it with the register request
+const verifiedOtp = ref('')
+
+const canCreateAccount = computed(() =>
+  username.value &&
+  email.value &&
+  password.value &&
+  confirmPassword.value &&
+  emailVerified.value
+)
+
+// ── Send verification OTP to the email ─────────────────────────────────────
+async function handleSendOtp() {
+  if (!email.value) {
+    verifyError.value = 'Please enter your email first'
+    return
+  }
+  verifyError.value = ''
+  verifyLoading.value = true
+  try {
+    await sendVerificationOtp({ email: email.value })
+    otpSent.value = true
+    toast.success('Verification OTP sent to your email!')
+    startCooldown(60)
+  } catch (err: any) {
+    if (err.response?.status === 422 && err.response?.data?.errors?.email) {
+      verifyError.value = err.response.data.errors.email.join(', ')
+    } else {
+      verifyError.value = err.response?.data?.error || 'Failed to send OTP'
+    }
+  } finally {
+    verifyLoading.value = false
+  }
+}
+
+// ── Verify the OTP (checked server-side inline) ───────────────────
+async function handleVerifyOtp() {
+  if (otpCode.value.length !== 6) {
+    verifyError.value = 'Please enter the full 6-digit OTP'
+    return
+  }
+  verifyError.value = ''
+  otpVerifying.value = true
+  try {
+    await verifyRegistrationOtp({
+      email: email.value,
+      otp: otpCode.value,
+    })
+    verifiedOtp.value = otpCode.value
+    emailVerified.value = true
+    toast.success('Email verified successfully!')
+  } catch (err: any) {
+    if (err.response?.status === 422) {
+      const errors = err.response.data.errors || {}
+      const msg = errors.otp?.join(', ') || errors.email?.join(', ')
+      verifyError.value = msg || 'Verification failed. Please try again.'
+    } else {
+      verifyError.value = err.response?.data?.error || 'Verification failed. Please try again.'
+    }
+  } finally {
+    otpVerifying.value = false
+  }
+}
+
+function startCooldown(seconds: number) {
+  resendCooldown.value = seconds
+  if (cooldownTimer) clearInterval(cooldownTimer)
+  cooldownTimer = setInterval(() => {
+    resendCooldown.value--
+    if (resendCooldown.value <= 0 && cooldownTimer) {
+      clearInterval(cooldownTimer)
+    }
+  }, 1000)
+}
+
+onUnmounted(() => {
+  if (cooldownTimer) clearInterval(cooldownTimer)
+})
+
+// ── Handle registration ────────────────────────────────────────────────────
 async function handleRegister() {
   error.value = ''
+  fieldErrors.value = {}
 
   if (!username.value || !email.value || !password.value || !confirmPassword.value) {
     error.value = 'Please fill in all fields'
+    return
+  }
+  if (!emailVerified.value) {
+    error.value = 'Please verify your email first'
     return
   }
   if (password.value !== confirmPassword.value) {
@@ -40,11 +137,23 @@ async function handleRegister() {
       username: username.value,
       email: email.value,
       password: password.value,
+      email_otp: '', // Checked server-side via email_verified status in Redis
     })
     toast.success('Account created successfully!')
     router.push({ name: 'login', query: { registered: 'true' } })
   } catch (err: any) {
-    error.value = err.response?.data?.error || 'Registration failed. Please try again.'
+    if (err.response?.status === 422) {
+      fieldErrors.value = err.response.data.errors || {}
+      error.value = 'Validation failed. Please correct the highlighted fields.'
+    } else {
+      error.value = err.response?.data?.error || 'Registration failed. Please try again.'
+    }
+    // If OTP was invalid, reset verification state so they can retry
+    if (err.response?.data?.error?.includes('OTP')) {
+      emailVerified.value = false
+      verifiedOtp.value = ''
+      otpCode.value = ''
+    }
   } finally {
     loading.value = false
   }
@@ -57,6 +166,7 @@ function googleSignup() {
 
 <template>
   <div class="min-h-screen bg-black flex items-center justify-center px-4 relative overflow-hidden">
+    <!-- Grid bg -->
     <div class="absolute inset-0 opacity-[0.08]" style="background-image: linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px); background-size: 48px 48px;"></div>
 
     <div class="relative z-10 w-full max-w-md">
@@ -78,6 +188,7 @@ function googleSignup() {
         </div>
 
         <form @submit.prevent="handleRegister" class="space-y-5">
+          <!-- Username -->
           <div>
             <label class="block text-sm font-bold text-black uppercase tracking-wider mb-2">Username</label>
             <input
@@ -86,16 +197,83 @@ function googleSignup() {
               placeholder="Choose a username"
               class="w-full px-4 py-3 border-2 border-black focus:ring-0 focus:border-gray-600 outline-none transition-all text-sm font-medium"
             />
+            <p v-if="fieldErrors.username" class="mt-1 text-xs text-red-600 font-bold">
+              {{ fieldErrors.username.join(', ') }}
+            </p>
           </div>
+
+          <!-- Email + inline verification -->
           <div>
             <label class="block text-sm font-bold text-black uppercase tracking-wider mb-2">Email</label>
-            <input
-              v-model="email"
-              type="email"
-              placeholder="Enter your email"
-              class="w-full px-4 py-3 border-2 border-black focus:ring-0 focus:border-gray-600 outline-none transition-all text-sm font-medium"
-            />
+            <div class="flex gap-2">
+              <input
+                v-model="email"
+                type="email"
+                placeholder="Enter your email"
+                :disabled="emailVerified"
+                class="flex-1 px-4 py-3 border-2 border-black focus:ring-0 focus:border-gray-600 outline-none transition-all text-sm font-medium disabled:bg-gray-100 disabled:text-gray-500"
+              />
+              <!-- Verify button / Verified badge -->
+              <button
+                v-if="!emailVerified && !otpSent"
+                type="button"
+                :disabled="verifyLoading || !email"
+                @click="handleSendOtp"
+                class="px-4 py-3 bg-black text-white text-xs font-bold uppercase tracking-wider hover:bg-gray-800 disabled:bg-gray-400 transition-colors whitespace-nowrap"
+              >
+                <span v-if="verifyLoading">Sending...</span>
+                <span v-else>Verify</span>
+              </button>
+              <div v-if="emailVerified" class="flex items-center px-3 bg-green-50 border-2 border-green-600">
+                <CheckCircle :size="18" class="text-green-600" />
+              </div>
+            </div>
+            <p v-if="fieldErrors.email" class="mt-1 text-xs text-red-600 font-bold">
+              {{ fieldErrors.email.join(', ') }}
+            </p>
+
+            <!-- OTP input row (appears after Send OTP) -->
+            <div v-if="otpSent && !emailVerified" class="mt-3 space-y-2">
+              <div v-if="verifyError" class="p-2 bg-red-50 border border-red-300 text-red-600 text-xs font-bold">
+                {{ verifyError }}
+              </div>
+              <div class="flex gap-2">
+                <input
+                  v-model="otpCode"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="6"
+                  placeholder="Enter 6-digit OTP"
+                  autocomplete="one-time-code"
+                  class="flex-1 px-4 py-3 border-2 border-black focus:ring-0 focus:border-gray-600 outline-none transition-all text-sm font-medium tracking-[0.2em] text-center"
+                />
+                <button
+                  type="button"
+                  :disabled="otpVerifying"
+                  @click="handleVerifyOtp"
+                  class="px-4 py-3 bg-black text-white text-xs font-bold uppercase tracking-wider hover:bg-gray-800 disabled:bg-gray-400 transition-colors whitespace-nowrap"
+                >
+                  <span v-if="otpVerifying">Verifying...</span>
+                  <span v-else>Confirm</span>
+                </button>
+              </div>
+              <div class="flex justify-between items-center">
+                <p class="text-xs text-gray-400 flex items-center gap-1">
+                  <Mail :size="12" /> Check your inbox
+                </p>
+                <button
+                  type="button"
+                  :disabled="resendCooldown > 0 || verifyLoading"
+                  @click="handleSendOtp"
+                  class="text-xs text-black font-bold uppercase tracking-wider hover:underline disabled:text-gray-300 disabled:no-underline"
+                >
+                  {{ resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend OTP' }}
+                </button>
+              </div>
+            </div>
           </div>
+
+          <!-- Password -->
           <div>
             <label class="block text-sm font-bold text-black uppercase tracking-wider mb-2">Password</label>
             <div class="relative">
@@ -114,7 +292,12 @@ function googleSignup() {
                 <Eye v-else :size="18" />
               </button>
             </div>
+            <p v-if="fieldErrors.password" class="mt-1 text-xs text-red-600 font-bold">
+              {{ fieldErrors.password.join(', ') }}
+            </p>
           </div>
+
+          <!-- Confirm password -->
           <div>
             <label class="block text-sm font-bold text-black uppercase tracking-wider mb-2">Confirm Password</label>
             <input
@@ -127,7 +310,7 @@ function googleSignup() {
 
           <button
             type="submit"
-            :disabled="loading"
+            :disabled="loading || !canCreateAccount"
             class="w-full py-4 bg-black text-white font-bold uppercase tracking-widest hover:bg-gray-800 disabled:bg-gray-400 transition-colors text-sm"
           >
             <span v-if="loading">Creating account...</span>

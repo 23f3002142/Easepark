@@ -15,8 +15,35 @@ class Users(db.Model):
     member_since = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     total_bookings = db.Column(db.Integer, default=0)
 
+    # ── Email verification ──────────────────────────────────────────────────────
+    # New users must verify their email before they can make bookings.
+    # Google-OAuth users are pre-verified because Google already confirmed the email.
+    is_verified = db.Column(db.Boolean, default=False, nullable=False)
+    email_verification_otp = db.Column(db.String(6), nullable=True)
+    email_verification_expires_at = db.Column(db.DateTime, nullable=True)
+
+    # ── Forgot password ─────────────────────────────────────────────────────────
+    # Stores a one-time OTP used to reset the password.
+    # Cleared after successful reset or expiry.
+    password_reset_otp = db.Column(db.String(6), nullable=True)
+    password_reset_expires_at = db.Column(db.DateTime, nullable=True)
+
 
     reservations = db.relationship('Reservation', backref='user', lazy='dynamic')
+
+class Vehicle(db.Model):
+    __tablename__ = 'vehicles'
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'vehicle_number', name='uq_user_vehicle_number'),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    vehicle_number = db.Column(db.String(20), nullable=False)
+    nickname = db.Column(db.String(50), nullable=True)
+    is_default = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    user = db.relationship('Users', backref=db.backref('vehicles_list', lazy='dynamic', cascade="all, delete-orphan"))
 
 class ParkingLot(db.Model):
     id = db.Column(db.Integer, primary_key=True)

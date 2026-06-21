@@ -1,9 +1,7 @@
 from flask import Blueprint, request, jsonify, make_response
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.security import check_password_hash
-import sib_api_v3_sdk
-from sib_api_v3_sdk.rest import ApiException
-from models.user_model import Users, ParkingLot, ParkingSpot, Reservation, db, Payment, Notification
+from models.user_model import Users, ParkingLot, ParkingSpot, Reservation, db, Payment, Notification, Vehicle
 from datetime import datetime, timedelta
 from collections import defaultdict
 from zoneinfo import ZoneInfo
@@ -11,10 +9,14 @@ from sqlalchemy import func, or_, and_
 from sqlalchemy.orm import joinedload
 from extensions import limiter
 from cache import cached, invalidate_cache
+from utils.validation import validate_schema
+from schemas.user_schemas import ProfileEditSchema, BookingSchema, VehicleSchema
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
 from reportlab.lib import colors
+import sib_api_v3_sdk
+from sib_api_v3_sdk.rest import ApiException
 import io
 import csv
 import os
@@ -33,10 +35,49 @@ IST = ZoneInfo("Asia/Kolkata")
 UTC = ZoneInfo("UTC")
 
 
+def calculate_parking_cost(start_time, end_time, price_per_hour):
+    """
+    Calculates cost based on per-minute billing.
+    Price per minute is (price_per_hour / 60.0).
+    A 15-minute (900 seconds) free grace period is implemented.
+    Duration is in minutes (rounded up using math.ceil(seconds / 60.0)).
+    
+    Returns (duration_minutes, cost)
+    """
+    delta_seconds = (end_time - start_time).total_seconds()
+    if delta_seconds <= 900:  # 15 minutes grace period
+        duration_minutes = max(0, math.ceil(delta_seconds / 60.0))
+        return duration_minutes, 0.0
+    
+    duration_minutes = math.ceil(delta_seconds / 60.0)
+    cost = duration_minutes * (price_per_hour / 60.0)
+    return duration_minutes, round(cost, 2)
+
+
+
 def get_current_user():
     user_id = get_jwt_identity()
     user = db.session.get(Users, int(user_id))
     return user
+
+
+def require_verified_email(user):
+    """
+    Returns a (response, 403) tuple if the user's email is not verified, else None.
+
+    WHY guard only booking/release/payment and not ALL endpoints?
+      - Profile, history, notifications: read-only, low risk — unverified users
+        should still be able to see their own data.
+      - Booking and payment: create financial transactions. An unverified email
+        means OTP receipts and release confirmations go nowhere — so we block
+        these until the email is confirmed.
+    """
+    if not user.is_verified:
+        return jsonify({
+            "error": "Please verify your email address before booking.",
+            "hint": "Check your inbox for the verification OTP or request a new one at /api/auth/resend-verification"
+        }), 403
+    return None
 
 
 def serialize_user(user):
@@ -51,6 +92,7 @@ def serialize_user(user):
         "pin_code": user.pin_code,
         "member_since": user.member_since.isoformat() if user.member_since else None,
         "total_bookings": user.total_bookings,
+        "is_verified": user.is_verified,
     }
 
 
@@ -161,21 +203,18 @@ def profile_view():
 @api_user_blueprint.route('/profile', methods=['PUT'])
 @jwt_required()
 @limiter.limit("10 per 1 minute")
-def profile_edit():
+@validate_schema(ProfileEditSchema)
+def profile_edit(valid_data):
     user = get_current_user()
     if not user or user.role != 'user':
         return jsonify({"error": "Unauthorized"}), 403
 
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "Request body required"}), 400
-
-    user.full_name = data.get('full_name', user.full_name)
-    user.username = data.get('username', user.username)
-    user.email = data.get('email', user.email)
-    user.phone_number = data.get('phone_number', user.phone_number)
-    user.address = data.get('address', user.address)
-    user.pin_code = data.get('pin_code', user.pin_code)
+    user.full_name = valid_data.get('full_name', user.full_name)
+    user.username = valid_data.get('username', user.username)
+    user.email = valid_data.get('email', user.email)
+    user.phone_number = valid_data.get('phone_number', user.phone_number)
+    user.address = valid_data.get('address', user.address)
+    user.pin_code = valid_data.get('pin_code', user.pin_code)
 
     try:
         db.session.commit()
@@ -361,26 +400,6 @@ def generate_otp():
     return str(random.randint(100000, 999999))
 
 
-def send_otp_email(email, otp):
-    configuration = sib_api_v3_sdk.Configuration()
-    configuration.api_key['api-key'] = os.getenv("BREVO_API_KEY")
-    api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
-
-    subject = "EasePark OTP Verification"
-    sender = {"email": os.getenv("MAIL_DEFAULT_SENDER")}
-    to = [{"email": email}]
-    text_content = f"Your OTP for EasePark booking action is: {otp}. Do not share it."
-
-    send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
-        to=to, sender=sender, subject=subject, text_content=text_content
-    )
-
-    try:
-        api_instance.send_transac_email(send_smtp_email)
-    except ApiException as e:
-        print("Brevo API Exception:", e)
-
-
 OTP_EXPIRY_MINUTES = 10
 RELEASE_EXPIRY_MINUTES = 5
 
@@ -431,10 +450,16 @@ def cleanup_stale_pending_reservations():
 @api_user_blueprint.route('/book/<int:lot_id>', methods=['POST'])
 @jwt_required()
 @limiter.limit("10 per 3 minute")
-def reserve_spot(lot_id):
+@validate_schema(BookingSchema)
+def reserve_spot(valid_data, lot_id):
     user = get_current_user()
     if not user or user.role != 'user':
         return jsonify({"error": "Unauthorized"}), 403
+
+    # Block unverified users from making bookings
+    guard = require_verified_email(user)
+    if guard:
+        return guard
 
     # Clean up expired pending reservations before processing
     cleanup_stale_pending_reservations()
@@ -447,11 +472,18 @@ def reserve_spot(lot_id):
     if not spot:
         return jsonify({"error": "No available spots in this lot"}), 409
 
-    data = request.get_json() or {}
-    vehicle_number = data.get("vehicle_number", "").strip()
+    vehicle_number = valid_data.get("vehicle_number")
+    vehicle_id = valid_data.get("vehicle_id")
 
-    if not vehicle_number:
-        return jsonify({"error": "Vehicle number is required"}), 400
+    if vehicle_id:
+        vehicle = Vehicle.query.filter_by(id=vehicle_id, user_id=user.id).first()
+        if not vehicle:
+            return jsonify({"error": "Saved vehicle not found."}), 404
+        vehicle_number = vehicle.vehicle_number
+    elif vehicle_number:
+        vehicle_number = vehicle_number.strip().upper()
+    else:
+        return jsonify({"error": "Either vehicle_number or vehicle_id must be provided"}), 422
 
     # Check if vehicle already has active reservation
     active_reservation = Reservation.query.filter_by(vehicle_number=vehicle_number, status="active").first()
@@ -647,8 +679,8 @@ def release_spot_info(reservation_id):
 
     now = datetime.now(IST)
     booking_time = reservation.booking_timestamp.replace(tzinfo=UTC).astimezone(IST)
-    duration = max(1, int((now - booking_time).total_seconds() / 3600))
-    estimated_cost = duration * reservation.cost_per_unit_time
+    duration_minutes, estimated_cost = calculate_parking_cost(booking_time, now, reservation.cost_per_unit_time)
+    duration_hours = round(duration_minutes / 60.0, 2)
 
     return jsonify({
         "reservation_id": reservation.id,
@@ -657,13 +689,13 @@ def release_spot_info(reservation_id):
         "vehicle_number": reservation.vehicle_number,
         "booking_time": booking_time.isoformat(),
         "current_time": now.isoformat(),
-        "duration_hours": duration,
+        "duration_hours": duration_hours,
         "estimated_cost": estimated_cost,
         "cost_per_hour": reservation.cost_per_unit_time,
     }), 200
 
 
-# ─── Release Confirmation: Send OTP ───
+# ── Release Confirmation: Send OTP ───
 @api_user_blueprint.route('/release/<int:reservation_id>/send-otp', methods=['POST'])
 @jwt_required()
 @limiter.limit("10 per 3 minute")
@@ -686,7 +718,7 @@ def release_send_otp(reservation_id):
     reservation.status = 'pending_release'
     db.session.commit()
 
-    send_otp_email(user.email, otp)
+    send_booking_otp(user.email, otp)   # uses central email utility
     return jsonify({"message": "OTP sent to your registered email"}), 200
 
 
@@ -816,8 +848,8 @@ def release_spot_free(reservation_id):
 
     now = datetime.now(IST)
     booking_time = reservation.booking_timestamp.replace(tzinfo=UTC).astimezone(IST)
-    duration = max(1, int((now - booking_time).total_seconds() / 3600))
-    total_cost = duration * reservation.cost_per_unit_time
+    duration_minutes, total_cost = calculate_parking_cost(booking_time, now, reservation.cost_per_unit_time)
+    duration_hours = round(duration_minutes / 60.0, 2)
 
     reservation.releasing_timestamp = datetime.utcnow()
     reservation.total_cost = total_cost
@@ -829,7 +861,7 @@ def release_spot_free(reservation_id):
         spot.status = 'A'
 
     lot_name = lot.parking_name if lot else 'Unknown'
-    _notify(user.id, 'Spot Released', f'Spot released at {lot_name}. Duration: {duration}h, Cost: ₹{total_cost}.', 'success')
+    _notify(user.id, 'Spot Released', f'Spot released at {lot_name}. Duration: {duration_hours}h, Cost: ₹{total_cost}.', 'success')
     db.session.commit()
     _invalidate_user_cache(user.id)
 
@@ -843,7 +875,7 @@ def release_spot_free(reservation_id):
     return jsonify({
         "message": "Spot released successfully (payment skipped — beta).",
         "total_cost": total_cost,
-        "duration_hours": duration,
+        "duration_hours": duration_hours,
     }), 200
 
 
@@ -875,8 +907,8 @@ def release_spot(reservation_id):
 
     now = datetime.now(IST)
     booking_time = reservation.booking_timestamp.replace(tzinfo=UTC).astimezone(IST)
-    duration = max(1, int((now - booking_time).total_seconds() / 3600))
-    estimated_cost = duration * reservation.cost_per_unit_time
+    duration_minutes, estimated_cost = calculate_parking_cost(booking_time, now, reservation.cost_per_unit_time)
+    duration_hours = round(duration_minutes / 60.0, 2)
 
     # Create Razorpay order
     amount_paise = int(estimated_cost * 100)
@@ -893,16 +925,17 @@ def release_spot(reservation_id):
         "amount_paise": amount_paise,
         "reservation_id": reservation.id,
         "lot_name": lot.parking_name,
-        "duration_hours": duration,
+        "duration_hours": duration_hours,
         "user_name": user.full_name or "",
         "user_email": user.email or "",
         "user_phone": user.phone_number or "",
     }), 200
 
 
-# ─── Payment Verification ───
+# ── Payment Verification ───
 @api_user_blueprint.route('/payment/verify', methods=['POST'])
 @jwt_required()
+@limiter.limit("5 per minute")
 def payment_verify():
     user = get_current_user()
     if not user or user.role != 'user':
@@ -933,8 +966,8 @@ def payment_verify():
 
     release_time = datetime.now(IST)
     booking_time = reservation.booking_timestamp.replace(tzinfo=UTC).astimezone(IST)
-    duration = max(1, int((release_time - booking_time).total_seconds() / 3600))
-    total_cost = duration * reservation.cost_per_unit_time
+    duration_minutes, total_cost = calculate_parking_cost(booking_time, release_time, reservation.cost_per_unit_time)
+    duration_hours = round(duration_minutes / 60.0, 2)
 
     spot = db.session.get(ParkingSpot, reservation.spot_id)
 
@@ -958,7 +991,7 @@ def payment_verify():
 
     lot = db.session.get(ParkingLot, spot.lot_id) if spot else None
     lot_name = lot.parking_name if lot else 'Unknown'
-    _notify(user.id, 'Payment Successful', f'Payment of ₹{total_cost} for {lot_name} completed. Spot released.', 'success')
+    _notify(user.id, 'Payment Successful', f'Payment of ₹{total_cost} for {lot_name} completed. Spot released. Duration: {duration_hours}h.', 'success')
     db.session.commit()
     _invalidate_user_cache(user.id)
 
@@ -1450,3 +1483,119 @@ def clear_notifications():
     Notification.query.filter_by(user_id=user.id).delete()
     db.session.commit()
     return jsonify({"message": "All notifications cleared"}), 200
+
+
+# ─── Saved Vehicles CRUD ───
+@api_user_blueprint.route('/vehicles', methods=['GET'])
+@jwt_required()
+def get_vehicles():
+    user = get_current_user()
+    if not user or user.role != 'user':
+        return jsonify({"error": "Unauthorized"}), 403
+
+    vehicles = Vehicle.query.filter_by(user_id=user.id).order_by(Vehicle.created_at.desc()).all()
+    return jsonify({
+        "vehicles": [
+            {
+                "id": v.id,
+                "vehicle_number": v.vehicle_number,
+                "nickname": v.nickname,
+                "is_default": v.is_default,
+                "created_at": v.created_at.isoformat()
+            } for v in vehicles
+        ]
+    }), 200
+
+
+@api_user_blueprint.route('/vehicles', methods=['POST'])
+@jwt_required()
+@validate_schema(VehicleSchema)
+def add_vehicle(valid_data):
+    user = get_current_user()
+    if not user or user.role != 'user':
+        return jsonify({"error": "Unauthorized"}), 403
+
+    vehicle_number = valid_data["vehicle_number"].strip().upper()
+    nickname = valid_data.get("nickname")
+    is_default = valid_data.get("is_default", False)
+
+    existing = Vehicle.query.filter_by(user_id=user.id, vehicle_number=vehicle_number).first()
+    if existing:
+        return jsonify({"error": "This vehicle is already saved in your account."}), 409
+
+    if is_default:
+        Vehicle.query.filter_by(user_id=user.id, is_default=True).update({"is_default": False})
+
+    # If this is the user's first vehicle, make it the default automatically
+    first_vehicle = Vehicle.query.filter_by(user_id=user.id).first()
+    if not first_vehicle:
+        is_default = True
+
+    vehicle = Vehicle(
+        user_id=user.id,
+        vehicle_number=vehicle_number,
+        nickname=nickname,
+        is_default=is_default
+    )
+    db.session.add(vehicle)
+    try:
+        db.session.commit()
+        return jsonify({
+            "message": "Vehicle added successfully",
+            "vehicle": {
+                "id": vehicle.id,
+                "vehicle_number": vehicle.vehicle_number,
+                "nickname": vehicle.nickname,
+                "is_default": vehicle.is_default
+            }
+        }), 201
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Failed to add vehicle"}), 500
+
+
+@api_user_blueprint.route('/vehicles/<int:vehicle_id>', methods=['DELETE'])
+@jwt_required()
+def delete_vehicle(vehicle_id):
+    user = get_current_user()
+    if not user or user.role != 'user':
+        return jsonify({"error": "Unauthorized"}), 403
+
+    vehicle = Vehicle.query.filter_by(id=vehicle_id, user_id=user.id).first()
+    if not vehicle:
+        return jsonify({"error": "Vehicle not found"}), 404
+
+    was_default = vehicle.is_default
+    db.session.delete(vehicle)
+    try:
+        db.session.commit()
+        if was_default:
+            next_default = Vehicle.query.filter_by(user_id=user.id).order_by(Vehicle.created_at.desc()).first()
+            if next_default:
+                next_default.is_default = True
+                db.session.commit()
+        return jsonify({"message": "Vehicle deleted successfully"}), 200
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Failed to delete vehicle"}), 500
+
+
+@api_user_blueprint.route('/vehicles/<int:vehicle_id>/set-default', methods=['PUT'])
+@jwt_required()
+def set_default_vehicle(vehicle_id):
+    user = get_current_user()
+    if not user or user.role != 'user':
+        return jsonify({"error": "Unauthorized"}), 403
+
+    vehicle = Vehicle.query.filter_by(id=vehicle_id, user_id=user.id).first()
+    if not vehicle:
+        return jsonify({"error": "Vehicle not found"}), 404
+
+    Vehicle.query.filter_by(user_id=user.id, is_default=True).update({"is_default": False})
+    vehicle.is_default = True
+    try:
+        db.session.commit()
+        return jsonify({"message": "Vehicle set as default"}), 200
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Failed to update default vehicle"}), 500

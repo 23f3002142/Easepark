@@ -20,6 +20,12 @@ const routes = [
     meta: { guest: true },
   },
   {
+    path: '/forgot-password',
+    name: 'forgot-password',
+    component: () => import('@/pages/ForgotPasswordPage.vue'),
+    meta: { guest: true },
+  },
+  {
     path: '/auth/callback',
     name: 'auth-callback',
     component: () => import('@/pages/AuthCallbackPage.vue'),
@@ -66,6 +72,12 @@ const routes = [
     path: '/bookings',
     name: 'booking-history',
     component: () => import('@/pages/user/BookingHistoryPage.vue'),
+    meta: { requiresAuth: true, role: 'user' },
+  },
+  {
+    path: '/vehicles',
+    name: 'user-vehicles',
+    component: () => import('@/pages/user/MyVehiclesPage.vue'),
     meta: { requiresAuth: true, role: 'user' },
   },
   {

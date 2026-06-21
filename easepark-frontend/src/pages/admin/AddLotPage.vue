@@ -57,9 +57,11 @@ function addCustomAmenity() {
 }
 const loading = ref(false)
 const error = ref('')
+const fieldErrors = ref<Record<string, string[]>>({})
 
 async function handleSubmit() {
   error.value = ''
+  fieldErrors.value = {}
   if (!form.value.parking_name || !form.value.price || !form.value.address || !form.value.pin_code || !form.value.max_spots) {
     error.value = 'All fields are required'
     return
@@ -70,7 +72,12 @@ async function handleSubmit() {
     toast.success('Parking lot added successfully!')
     router.push('/admin')
   } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to add lot'
+    if (err.response?.status === 422) {
+      fieldErrors.value = err.response.data.errors || {}
+      error.value = 'Validation failed. Please correct the highlighted fields.'
+    } else {
+      error.value = err.response?.data?.error || 'Failed to add lot'
+    }
   } finally {
     loading.value = false
   }
@@ -111,6 +118,9 @@ const fields = [
               :step="field.type === 'number' ? 'any' : undefined"
               class="w-full px-4 py-3 border-2 border-black focus:ring-0 focus:border-gray-600 outline-none transition-all text-sm font-medium"
             />
+            <p v-if="fieldErrors[field.key]" class="mt-1 text-xs text-red-600 font-bold">
+              {{ fieldErrors[field.key].join(', ') }}
+            </p>
           </div>
 
           <!-- Lot Type -->

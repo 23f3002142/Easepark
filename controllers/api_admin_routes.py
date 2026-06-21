@@ -4,8 +4,11 @@ from sqlalchemy import func, or_, and_
 from sqlalchemy.orm import joinedload
 from models.user_model import Users, ParkingLot, ParkingSpot, Reservation, db
 from cache import cached, invalidate_cache
+from utils.validation import validate_schema
+from schemas.lot_schemas import AddLotSchema, EditLotSchema
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+from controllers.api_user_routes import calculate_parking_cost
 
 api_admin_blueprint = Blueprint('api_admin', __name__, url_prefix='/api/admin')
 
@@ -144,30 +147,24 @@ def profile_edit():
 # ─── Add Lot ───
 @api_admin_blueprint.route('/lots', methods=['POST'])
 @jwt_required()
-def add_lot():
+@validate_schema(AddLotSchema)
+def add_lot(valid_data):
     admin = get_admin_user()
     if not admin:
         return jsonify({"error": "Unauthorized"}), 403
 
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "Request body required"}), 400
+    name = valid_data.get('parking_name').strip()
+    price = valid_data.get('price')
+    address = valid_data.get('address').strip()
+    pin_code = valid_data.get('pin_code').strip()
+    max_spots = valid_data.get('max_spots')
+    latitude = valid_data.get('latitude')
+    longitude = valid_data.get('longitude')
+    lot_type = (valid_data.get('lot_type') or '').strip() or None
+    amenities = (valid_data.get('amenities') or '').strip() or None
 
-    name = data.get('parking_name', '').strip()
-    price = data.get('price')
-    address = data.get('address', '').strip()
-    pin_code = data.get('pin_code', '').strip()
-    max_spots = data.get('max_spots')
-    latitude = data.get('latitude')
-    longitude = data.get('longitude')
-    lot_type = data.get('lot_type', '').strip() or None
-    amenities = data.get('amenities', '').strip() or None
-
-    if not all([name, price, address, pin_code, max_spots]):
-        return jsonify({"error": "parking_name, price, address, pin_code, and max_spots are required"}), 400
-
-    lat_val = float(latitude) if latitude else None
-    long_val = float(longitude) if longitude else None
+    lat_val = float(latitude) if latitude is not None else None
+    long_val = float(longitude) if longitude is not None else None
 
     new_lot = ParkingLot(
         parking_name=name, price=float(price), address=address,
@@ -188,7 +185,8 @@ def add_lot():
 # ─── Edit Lot ───
 @api_admin_blueprint.route('/lots/<int:lot_id>', methods=['PUT'])
 @jwt_required()
-def edit_lot(lot_id):
+@validate_schema(EditLotSchema)
+def edit_lot(valid_data, lot_id):
     admin = get_admin_user()
     if not admin:
         return jsonify({"error": "Unauthorized"}), 403
@@ -197,20 +195,16 @@ def edit_lot(lot_id):
     if lot is None:
         return jsonify({"error": "Lot not found"}), 404
 
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "Request body required"}), 400
+    lot.parking_name = valid_data.get('parking_name', lot.parking_name)
+    lot.price = float(valid_data.get('price', lot.price))
+    lot.address = valid_data.get('address', lot.address)
+    lot.pin_code = valid_data.get('pin_code', lot.pin_code)
+    lot.latitude = valid_data.get('latitude', lot.latitude)
+    lot.longitude = valid_data.get('longitude', lot.longitude)
+    lot.lot_type = valid_data.get('lot_type', lot.lot_type)
+    lot.amenities = valid_data.get('amenities', lot.amenities)
 
-    lot.parking_name = data.get('parking_name', lot.parking_name)
-    lot.price = float(data.get('price', lot.price))
-    lot.address = data.get('address', lot.address)
-    lot.pin_code = data.get('pin_code', lot.pin_code)
-    lot.latitude = data.get('latitude', lot.latitude)
-    lot.longitude = data.get('longitude', lot.longitude)
-    lot.lot_type = data.get('lot_type', lot.lot_type)
-    lot.amenities = data.get('amenities', lot.amenities)
-
-    new_max_spots = int(data.get('max_spots', lot.max_spots))
+    new_max_spots = int(valid_data.get('max_spots', lot.max_spots))
     current_spots_count = lot.spots.count()
 
     if new_max_spots > current_spots_count:
@@ -328,8 +322,8 @@ def view_spot(spot_id):
         if reservation:
             booking_time = reservation.booking_timestamp.replace(tzinfo=UTC).astimezone(IST)
             now = datetime.now(IST)
-            duration = max(1, int((now - booking_time).total_seconds() / 3600))
-            estimated_cost = duration * reservation.cost_per_unit_time
+            duration_minutes, estimated_cost = calculate_parking_cost(booking_time, now, reservation.cost_per_unit_time)
+            duration_hours = round(duration_minutes / 60.0, 2)
 
             result["reservation"] = {
                 "id": reservation.id,
@@ -337,7 +331,7 @@ def view_spot(spot_id):
                 "username": reservation.user.username,
                 "vehicle_number": reservation.vehicle_number,
                 "booking_time": booking_time.isoformat(),
-                "duration_hours": duration,
+                "duration_hours": duration_hours,
                 "estimated_cost": estimated_cost,
             }
 
@@ -375,9 +369,33 @@ def view_users():
     if not admin:
         return jsonify({"error": "Unauthorized"}), 403
 
-    users = Users.query.filter(Users.role != 'admin').all()
-    users_data = [serialize_user(u) for u in users]
-    return jsonify({"users": users_data}), 200
+    search_query = request.args.get('search', '')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+
+    query = Users.query.filter(Users.role != 'admin')
+
+    if search_query:
+        query = query.filter(
+            or_(
+                Users.username.ilike(f'%{search_query}%'),
+                Users.email.ilike(f'%{search_query}%'),
+                Users.full_name.ilike(f'%{search_query}%')
+            )
+        )
+
+    pagination = query.order_by(Users.member_since.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    users_data = [serialize_user(u) for u in pagination.items]
+
+    return jsonify({
+        "users": users_data,
+        "pagination": {
+            "page": pagination.page,
+            "per_page": pagination.per_page,
+            "total_pages": pagination.pages,
+            "total_items": pagination.total,
+        }
+    }), 200
 
 
 # ─── User Booking History (admin view) ───

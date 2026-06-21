@@ -67,12 +67,29 @@ app.config['SESSION_COOKIE_SAMESITE'] = os.getenv("SESSION_COOKIE_SAMESITE", "La
 #JWT config
 app.config['JWT_SECRET_KEY'] = os.getenv("SECRET_KEY", "jwt-fallback-secret")
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24)
+app.config['JWT_REFRESH_TOKEN_EXPIRES'] = timedelta(days=30)
 
 db.init_app(app)
 migrate = Migrate(app, db)
 
 #JWT & CORS
 jwt.init_app(app)
+
+# ── JWT blocklist: check Redis on every protected request ───────────────────
+# When a user logs out, we write their token's JTI (unique JWT ID) into Redis.
+# This callback runs before every @jwt_required() endpoint.
+# If the JTI is in Redis → token is revoked → return 401 automatically.
+@jwt.token_in_blocklist_loader
+def check_if_token_revoked(jwt_header, jwt_payload):
+    jti = jwt_payload["jti"]
+    try:
+        from cache import redis_client
+        if redis_client:
+            return redis_client.get(f"blocklist:{jti}") is not None
+    except Exception:
+        pass
+    return False  # If Redis is unavailable, allow the token (graceful degradation)
+
 frontend_origin = os.getenv("FRONTEND_URL", "http://localhost:5173")
 allowed_origins = [o.strip() for o in frontend_origin.split(",") if o.strip()]
 # Always allow localhost for development
@@ -122,15 +139,22 @@ app.register_blueprint(api_auth)
 app.register_blueprint(api_user_blueprint)
 app.register_blueprint(api_admin_blueprint)
 
-#hardcoded Admin(for starter purposes , will be changed at the time of production)
+#hardcoded Admin — credentials come from environment variables
+# WHY env vars? Because hardcoding credentials in source code is a security
+# vulnerability: the password ends up in Git history forever.
 def seed_admin_user():
-    admin = Users.query.filter_by(username='admin').first()
+    admin_username = os.getenv("ADMIN_USERNAME", "admin")
+    admin_email = os.getenv("ADMIN_EMAIL", "admin@easepark.com")
+    admin_password = os.getenv("ADMIN_PASSWORD", "admin123")
+
+    admin = Users.query.filter_by(username=admin_username).first()
     if not admin:
         admin = Users(
-            username='admin',# type: ignore
-            email='adminxyz@gmail.com',# type: ignore
-            password=generate_password_hash('admin123'),# type: ignore
-            role='admin'# type: ignore
+            username=admin_username,                        # type: ignore
+            email=admin_email,                              # type: ignore
+            password=generate_password_hash(admin_password),# type: ignore
+            role='admin',                                   # type: ignore
+            is_verified=True,                               # type: ignore  — admin is always verified
         )
         db.session.add(admin)
         db.session.commit()
@@ -168,13 +192,25 @@ def start_keep_alive():
 
 
 # Initialize database on startup (but handle errors gracefully)
+# NOTE: db.create_all() is here for convenience in dev — in production
+# schema changes are handled by 'flask db upgrade' (Alembic migrations).
 try:
     with app.app_context():
         db.create_all()
-        seed_admin_user()
         print("Database initialized successfully")
 except Exception as e:
     print(f"Database initialization failed: {e}")
+
+# Seed the admin user — in a separate try/except because this query
+# touches the Users model. If a migration is being applied RIGHT NOW
+# (i.e., flask db upgrade imported app.py before adding new columns),
+# this call will fail with UndefinedColumn. That is expected and harmless —
+# the next real app boot (docker compose up) will succeed.
+try:
+    with app.app_context():
+        seed_admin_user()
+except Exception as e:
+    print(f"[startup] Admin seed skipped (schema may be mid-migration): {e}")
 
 # Start keep-alive thread
 try:

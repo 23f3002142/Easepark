@@ -33,9 +33,32 @@ const showPassword = ref(false)
 
 const reservationId = Number(route.params.id)
 
+let costInterval: ReturnType<typeof setInterval> | null = null
+
+function startRealTimeBilling() {
+  if (costInterval) clearInterval(costInterval)
+  costInterval = setInterval(() => {
+    if (!info.value) return
+    const now = new Date()
+    info.value.current_time = now.toISOString()
+    
+    const bookingMs = new Date(info.value.booking_time).getTime()
+    const diffSec = Math.max(0, Math.floor((now.getTime() - bookingMs) / 1000))
+    const diffMin = Math.ceil(diffSec / 60)
+    
+    if (diffSec <= 900) {
+      info.value.estimated_cost = 0
+    } else {
+      info.value.estimated_cost = Number((diffMin * (info.value.cost_per_hour / 60)).toFixed(2))
+    }
+    info.value.duration_hours = Number((diffMin / 60).toFixed(2))
+  }, 30000)
+}
+
 onMounted(async () => {
   try {
     info.value = await getReleaseInfo(reservationId)
+    startRealTimeBilling()
   } catch (err: any) {
     error.value = err.response?.data?.error || 'Failed to load release info'
   } finally {
@@ -45,6 +68,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
+  if (costInterval) clearInterval(costInterval)
 })
 
 function formatDate(iso: string) {

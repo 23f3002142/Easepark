@@ -9,4 +9,5 @@ export interface User {
   pin_code?: string
   member_since: string | null
   total_bookings: number
+  is_verified: boolean
 }

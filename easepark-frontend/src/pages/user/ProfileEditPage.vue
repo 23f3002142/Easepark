@@ -21,6 +21,7 @@ const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
 const success = ref('')
+const fieldErrors = ref<Record<string, string[]>>({})
 
 onMounted(async () => {
   try {
@@ -44,13 +45,19 @@ async function handleSubmit() {
   error.value = ''
   success.value = ''
   saving.value = true
+  fieldErrors.value = {}
   try {
     const res = await updateProfile(form.value)
     success.value = res.message
     authStore.user = res.user
     setTimeout(() => router.push('/profile'), 1200)
   } catch (err: any) {
-    error.value = err.response?.data?.error || 'Failed to update profile'
+    if (err.response?.status === 422) {
+      fieldErrors.value = err.response.data.errors || {}
+      error.value = 'Validation failed. Please correct the highlighted fields.'
+    } else {
+      error.value = err.response?.data?.error || 'Failed to update profile'
+    }
   } finally {
     saving.value = false
   }
@@ -94,6 +101,9 @@ const fields = [
               :type="field.type"
               class="w-full px-4 py-3 border-2 border-black focus:ring-0 focus:border-gray-600 outline-none transition-all text-sm font-medium"
             />
+            <p v-if="fieldErrors[field.key]" class="mt-1 text-xs text-red-600 font-bold">
+              {{ fieldErrors[field.key].join(', ') }}
+            </p>
           </div>
 
           <div class="flex gap-4 pt-4">

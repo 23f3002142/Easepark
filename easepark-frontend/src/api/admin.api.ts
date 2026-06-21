@@ -1,5 +1,6 @@
 import api from './axios'
 import type { User } from '@/types/user'
+import type { Pagination } from '@/types/parking'
 
 export interface AdminSpotBrief {
   id: number
@@ -142,8 +143,8 @@ export async function deleteSpot(spotId: number): Promise<{ message: string }> {
   return data
 }
 
-export async function getUsers(): Promise<{ users: User[] }> {
-  const { data } = await api.get('/admin/users')
+export async function getUsers(params?: { page?: number; per_page?: number; search?: string }): Promise<{ users: User[]; pagination: Pagination }> {
+  const { data } = await api.get('/admin/users', { params })
   return data
 }
 

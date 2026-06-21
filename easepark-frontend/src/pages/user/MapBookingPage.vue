@@ -321,7 +321,6 @@ function clearRoute() {
   reserveError.value = ''
   showModal.value = true
 }
-
 async function handleReserve() {
   if (!selectedLot.value || !vehicleNumber.value.trim()) {
     reserveError.value = 'Vehicle number is required'
@@ -330,7 +329,7 @@ async function handleReserve() {
   reserveLoading.value = true
   reserveError.value = ''
   try {
-    const res = await reserveSpot(selectedLot.value.id, vehicleNumber.value.trim())
+    const res = await reserveSpot(selectedLot.value.id, { vehicle_number: vehicleNumber.value.trim().toUpperCase() })
     toast.success(res.message)
     router.push('/bookings')
   } catch (err: any) {
@@ -339,7 +338,6 @@ async function handleReserve() {
     reserveLoading.value = false
   }
 }
-
 function goBack() {
   router.push('/book')
 }

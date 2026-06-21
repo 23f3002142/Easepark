@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import DashboardLayout from '@/components/DashboardLayout.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import PaginationBar from '@/components/PaginationBar.vue'
-import { getLots, reserveSpot } from '@/api/user.api'
+import { getLots, reserveSpot, getVehicles, type Vehicle } from '@/api/user.api'
 import { useToast } from '@/composables/useToast'
 import type { ParkingLot, Pagination } from '@/types/parking'
 import { Search } from 'lucide-vue-next'
@@ -23,6 +23,8 @@ const error = ref('')
 const showModal = ref(false)
 const selectedLot = ref<ParkingLot | null>(null)
 const vehicleNumber = ref('')
+const savedVehicles = ref<Vehicle[]>([])
+const selectedVehicleId = ref<number | string>('custom')
 const reserveLoading = ref(false)
 const reserveError = ref('')
 
@@ -50,10 +52,27 @@ function onPageChange(p: number) {
   fetchLots(p)
 }
 
-function openReserve(lot: ParkingLot) {
+async function openReserve(lot: ParkingLot) {
   selectedLot.value = lot
   vehicleNumber.value = ''
+  selectedVehicleId.value = 'custom'
   reserveError.value = ''
+  
+  try {
+    const res = await getVehicles()
+    savedVehicles.value = res.vehicles
+    const defaultVehicle = res.vehicles.find(v => v.is_default)
+    if (defaultVehicle) {
+      selectedVehicleId.value = defaultVehicle.id
+      vehicleNumber.value = defaultVehicle.vehicle_number
+    } else if (res.vehicles.length > 0) {
+      selectedVehicleId.value = res.vehicles[0].id
+      vehicleNumber.value = res.vehicles[0].vehicle_number
+    }
+  } catch {
+    savedVehicles.value = []
+  }
+  
   showModal.value = true
 }
 
@@ -68,10 +87,20 @@ const routeMessages = [
 ]
 
 async function handleReserve() {
-  if (!selectedLot.value || !vehicleNumber.value.trim()) {
-    reserveError.value = 'Vehicle number is required'
-    return
+  if (!selectedLot.value) return
+
+  let payload: { vehicle_number?: string; vehicle_id?: number } = {}
+  
+  if (selectedVehicleId.value === 'custom') {
+    if (!vehicleNumber.value.trim()) {
+      reserveError.value = 'Vehicle number is required'
+      return
+    }
+    payload.vehicle_number = vehicleNumber.value.trim().toUpperCase()
+  } else {
+    payload.vehicle_id = Number(selectedVehicleId.value)
   }
+
   reserveLoading.value = true
   reserveError.value = ''
   showModal.value = false
@@ -86,7 +115,7 @@ async function handleReserve() {
   }, 1500)
 
   try {
-    const res = await reserveSpot(selectedLot.value.id, vehicleNumber.value.trim())
+    const res = await reserveSpot(selectedLot.value.id, payload)
     routeMessage.value = 'Spot reserved! Redirecting...'
     await new Promise(r => setTimeout(r, 1000))
     toast.success(res.message)
@@ -247,14 +276,29 @@ async function handleReserve() {
                 <label class="block text-sm font-bold text-black uppercase tracking-wider mb-2">Lot Name</label>
                 <input :value="selectedLot?.name || selectedLot?.parking_name" readonly class="w-full px-4 py-3 border-2 border-gray-300 bg-gray-100 text-sm font-medium" />
               </div>
-              <div>
+              <!-- Saved Vehicles Dropdown -->
+              <div v-if="savedVehicles.length">
+                <label class="block text-sm font-bold text-black uppercase tracking-wider mb-2">Choose Vehicle</label>
+                <select
+                  v-model="selectedVehicleId"
+                  @change="vehicleNumber = selectedVehicleId === 'custom' ? '' : (savedVehicles.find(v => v.id === selectedVehicleId)?.vehicle_number || '')"
+                  class="w-full px-4 py-3 border-2 border-black focus:ring-0 focus:border-gray-600 outline-none text-sm font-medium bg-white"
+                >
+                  <option v-for="v in savedVehicles" :key="v.id" :value="v.id">
+                    {{ v.vehicle_number }} - {{ v.nickname || 'Unnamed' }} {{ v.is_default ? '(Default)' : '' }}
+                  </option>
+                  <option value="custom">Use a different vehicle...</option>
+                </select>
+              </div>
+
+              <!-- Custom Vehicle Number Input -->
+              <div v-if="selectedVehicleId === 'custom' || !savedVehicles.length">
                 <label class="block text-sm font-bold text-black uppercase tracking-wider mb-2">Vehicle Number</label>
                 <input
                   v-model="vehicleNumber"
                   type="text"
                   placeholder="MH12AB1234"
-                  pattern="^[A-Z]{2}\d{1,2}[A-Z]{0,2}\d{1,4}$"
-                  class="w-full px-4 py-3 border-2 border-black focus:ring-0 focus:border-gray-600 outline-none text-sm font-medium uppercase"
+                  class="w-full px-4 py-3 border-2 border-black focus:ring-0 focus:border-gray-600 outline-none text-sm font-medium uppercase font-mono"
                 />
               </div>
             </div>

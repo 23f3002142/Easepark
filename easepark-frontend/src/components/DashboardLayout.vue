@@ -20,6 +20,7 @@ const userLinks = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
   { label: 'Book Spot', to: '/book', icon: Car },
   { label: 'My Bookings', to: '/bookings', icon: Clock },
+  { label: 'My Vehicles', to: '/vehicles', icon: Settings },
   { label: 'Summary', to: '/summary', icon: BarChart3 },
 ]
 

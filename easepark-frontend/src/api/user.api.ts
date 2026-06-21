@@ -117,12 +117,40 @@ export async function getNearbyLots(lat: number, lng: number, limit = 5): Promis
   return data
 }
 
-export async function reserveSpot(lotId: number, vehicleNumber: string): Promise<{
+export interface Vehicle {
+  id: number
+  vehicle_number: string
+  nickname?: string
+  is_default: boolean
+  created_at?: string
+}
+
+export async function reserveSpot(lotId: number, payload: { vehicle_number?: string; vehicle_id?: number }): Promise<{
   message: string
   reservation_id: number
   spot_number: string
 }> {
-  const { data } = await api.post(`/user/book/${lotId}`, { vehicle_number: vehicleNumber })
+  const { data } = await api.post(`/user/book/${lotId}`, payload)
+  return data
+}
+
+export async function getVehicles(): Promise<{ vehicles: Vehicle[] }> {
+  const { data } = await api.get('/user/vehicles')
+  return data
+}
+
+export async function addVehicle(payload: { vehicle_number: string; nickname?: string; is_default?: boolean }): Promise<{ message: string; vehicle: Vehicle }> {
+  const { data } = await api.post('/user/vehicles', payload)
+  return data
+}
+
+export async function deleteVehicle(vehicleId: number): Promise<{ message: string }> {
+  const { data } = await api.delete(`/user/vehicles/${vehicleId}`)
+  return data
+}
+
+export async function setDefaultVehicle(vehicleId: number): Promise<{ message: string }> {
+  const { data } = await api.put(`/user/vehicles/${vehicleId}/set-default`)
   return data
 }
 
