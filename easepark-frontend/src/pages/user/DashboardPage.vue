@@ -105,10 +105,10 @@ onMounted(async () => {
           <!-- Profile Info -->
           <div class="bg-white border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             <h2 class="text-xl font-bold text-black uppercase tracking-tight mb-4">Profile</h2>
-            <div class="grid grid-cols-2 gap-4 text-sm">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
                 <p class="text-gray-500 font-medium">Full Name</p>
-                <p class="font-bold text-black">{{ data.user.full_name || data.user.username }}</p>
+                <p class="font-bold text-black break-words">{{ data.user.full_name || data.user.username }}</p>
               </div>
               <div>
                 <p class="text-gray-500 font-medium">Member Since</p>
@@ -116,7 +116,7 @@ onMounted(async () => {
               </div>
               <div>
                 <p class="text-gray-500 font-medium">Email</p>
-                <p class="font-bold text-black font-mono text-xs">{{ data.user.email }}</p>
+                <p class="font-bold text-black font-mono text-xs break-all">{{ data.user.email }}</p>
               </div>
               <div>
                 <p class="text-gray-500 font-medium">Total Bookings</p>

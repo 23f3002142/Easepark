@@ -179,7 +179,7 @@ const fields = [
         <div class="space-y-6">
           <div v-for="field in fields" :key="field.key" class="flex flex-col sm:flex-row sm:items-center border-b border-gray-200 pb-4 last:border-0 last:pb-0">
             <span class="text-sm font-bold text-gray-500 uppercase tracking-wider w-40 mb-1 sm:mb-0">{{ field.label }}</span>
-            <span class="font-bold text-black text-lg">{{ (user as any)[field.key] || 'N/A' }}</span>
+            <span class="font-bold text-black text-lg break-all">{{ (user as any)[field.key] || 'N/A' }}</span>
           </div>
         </div>
 

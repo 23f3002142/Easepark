@@ -11,7 +11,7 @@ function dismiss(id: number) {
 
 <template>
   <teleport to="body">
-    <div class="fixed top-6 right-6 z-[9999] flex flex-col gap-3 max-w-sm w-full pointer-events-none">
+    <div class="fixed top-4 left-4 right-4 sm:left-auto sm:right-6 sm:top-6 z-[9999] flex flex-col gap-3 sm:max-w-sm w-auto pointer-events-none">
       <transition-group
         enter-active-class="transition duration-300 ease-out"
         enter-from-class="translate-x-full opacity-0"
