@@ -93,6 +93,7 @@ def serialize_user(user):
         "member_since": user.member_since.isoformat() if user.member_since else None,
         "total_bookings": user.total_bookings,
         "is_verified": user.is_verified,
+        "is_oauth": user.password is None or user.password == "",
     }
 
 
@@ -100,6 +101,7 @@ def serialize_user(user):
 @api_user_blueprint.route('/dashboard', methods=['GET'])
 @jwt_required()
 @limiter.limit("10 per 1 minute")
+@cached(prefix="user_dashboard", ttl=60, per_user=True)
 def dashboard():
     user = get_current_user()
     if not user or user.role != 'user':
@@ -186,7 +188,7 @@ def _invalidate_user_cache(user_id):
     invalidate_cache(f"user_dashboard:u:{user_id}*")
     invalidate_cache(f"user_history:u:{user_id}*")
     invalidate_cache(f"user_summary:u:{user_id}*")
-    invalidate_cache("lots:*")
+    invalidate_cache("lots*")
 
 
 # ─── Profile ───
@@ -227,6 +229,7 @@ def profile_edit(valid_data):
 # ─── Lots (for booking) ───
 @api_user_blueprint.route('/lots', methods=['GET'])
 @jwt_required()
+@cached(prefix="lots", ttl=60)
 def get_lots():
     search_query = request.args.get('search', '')
     page = request.args.get('page', 1, type=int)
@@ -520,6 +523,7 @@ def reserve_spot(valid_data, lot_id):
 @api_user_blueprint.route('/history', methods=['GET'])
 @jwt_required()
 @limiter.limit("10 per 1 minute")
+@cached(prefix="user_history", ttl=60, per_user=True)
 def booking_history():
     user = get_current_user()
     if not user or user.role != 'user':
@@ -792,6 +796,33 @@ def release_verify_password(reservation_id):
     reservation.otp_secret = None
     db.session.commit()
     return jsonify({"message": "Password verified. Proceed to payment."}), 200
+
+
+# ─── Release Confirmation: Verify Google OAuth ───
+@api_user_blueprint.route('/release/<int:reservation_id>/verify-oauth', methods=['POST'])
+@jwt_required()
+@limiter.limit("10 per 3 minute")
+def release_verify_oauth(reservation_id):
+    user = get_current_user()
+    if not user or user.role != 'user':
+        return jsonify({"error": "Unauthorized"}), 403
+
+    if user.password:
+        return jsonify({"error": "Only Google accounts are allowed to use one-click verification."}), 400
+
+    reservation = Reservation.query.filter(
+        Reservation.id == reservation_id,
+        Reservation.user_id == user.id,
+        Reservation.status.in_(['active', 'pending_release']),
+    ).first()
+    if not reservation:
+        return jsonify({"error": "Active reservation not found"}), 404
+
+    reservation.status = 'pending_release'
+    reservation.otp_verified = True
+    reservation.otp_secret = None
+    db.session.commit()
+    return jsonify({"message": "Google session verified. Proceed to payment."}), 200
 
 
 # ─── Cancel Release (revert pending_release → active) ───
@@ -1110,6 +1141,7 @@ def download_receipt(reservation_id):
 @api_user_blueprint.route('/summary', methods=['GET'])
 @jwt_required()
 @limiter.limit("10 per 1 minute")
+@cached(prefix="user_summary", ttl=60, per_user=True)
 def user_summary():
     user = get_current_user()
     if not user or user.role != 'user':

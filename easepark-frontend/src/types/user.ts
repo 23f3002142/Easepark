@@ -10,4 +10,5 @@ export interface User {
   member_since: string | null
   total_bookings: number
   is_verified: boolean
+  is_oauth?: boolean
 }

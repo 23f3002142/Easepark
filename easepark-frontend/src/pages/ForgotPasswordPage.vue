@@ -30,6 +30,11 @@ async function handleSendOTP() {
     error.value = 'Please enter your email address'
     return
   }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email.value)) {
+    error.value = 'Please enter a valid email address'
+    return
+  }
   loading.value = true
   fieldErrors.value = {}
   try {

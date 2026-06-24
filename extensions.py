@@ -24,7 +24,8 @@ def rate_limit_key():
 
 limiter = Limiter(
     key_func=rate_limit_key,
-    default_limits=["200 per hour"]
+    default_limits=["200 per hour"],
+    swallow_errors=True
 )
 
 oauth = OAuth()

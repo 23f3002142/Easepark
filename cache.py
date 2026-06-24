@@ -12,6 +12,7 @@ try:
         if _redis_url.startswith("rediss://"):
             import ssl
             _kwargs["ssl_cert_reqs"] = ssl.CERT_NONE
+            _kwargs["ssl_check_hostname"] = False
         redis_client = redis.from_url(_redis_url, **_kwargs)
         redis_client.ping()
         print("Cache: using Redis")
@@ -68,7 +69,11 @@ def cached(prefix: str, ttl: int = 60, per_user: bool = False):
                 response_data, status_code = result
                 if status_code in (200, 201):
                     try:
-                        redis_client.setex(cache_key, ttl, json.dumps(response_data.get_json()))
+                        if hasattr(response_data, "get_json"):
+                            cached_val = response_data.get_json()
+                        else:
+                            cached_val = response_data
+                        redis_client.setex(cache_key, ttl, json.dumps(cached_val))
                     except Exception:
                         pass
 

@@ -169,6 +169,11 @@ export async function verifyReleasePassword(reservationId: number, password: str
   return data
 }
 
+export async function verifyReleaseOauth(reservationId: number): Promise<{ message: string }> {
+  const { data } = await api.post(`/user/release/${reservationId}/verify-oauth`)
+  return data
+}
+
 export async function cancelRelease(reservationId: number): Promise<{ message: string }> {
   const { data } = await api.post(`/user/release/${reservationId}/cancel`)
   return data

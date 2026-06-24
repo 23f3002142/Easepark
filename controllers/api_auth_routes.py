@@ -93,6 +93,7 @@ def serialize_user(user):
         "member_since": user.member_since.isoformat() if user.member_since else None,
         "total_bookings": user.total_bookings,
         "is_verified": user.is_verified,
+        "is_oauth": user.password is None or user.password == "",
     }
 
 

@@ -47,6 +47,11 @@ async function handleSendOtp() {
     verifyError.value = 'Please enter your email first'
     return
   }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email.value)) {
+    verifyError.value = 'Please enter a valid email address'
+    return
+  }
   verifyError.value = ''
   verifyLoading.value = true
   try {
@@ -116,6 +121,11 @@ async function handleRegister() {
 
   if (!username.value || !email.value || !password.value || !confirmPassword.value) {
     error.value = 'Please fill in all fields'
+    return
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email.value)) {
+    error.value = 'Please enter a valid email address'
     return
   }
   if (!emailVerified.value) {
@@ -205,13 +215,13 @@ function googleSignup() {
           <!-- Email + inline verification -->
           <div>
             <label class="block text-sm font-bold text-black uppercase tracking-wider mb-2">Email</label>
-            <div class="flex gap-2">
+            <div class="flex flex-col sm:flex-row gap-2">
               <input
                 v-model="email"
                 type="email"
                 placeholder="Enter your email"
                 :disabled="emailVerified"
-                class="flex-1 px-4 py-3 border-2 border-black focus:ring-0 focus:border-gray-600 outline-none transition-all text-sm font-medium disabled:bg-gray-100 disabled:text-gray-500"
+                class="w-full sm:flex-1 px-4 py-3 border-2 border-black focus:ring-0 focus:border-gray-600 outline-none transition-all text-sm font-medium disabled:bg-gray-100 disabled:text-gray-500"
               />
               <!-- Verify button / Verified badge -->
               <button
@@ -219,12 +229,12 @@ function googleSignup() {
                 type="button"
                 :disabled="verifyLoading || !email"
                 @click="handleSendOtp"
-                class="px-4 py-3 bg-black text-white text-xs font-bold uppercase tracking-wider hover:bg-gray-800 disabled:bg-gray-400 transition-colors whitespace-nowrap"
+                class="w-full sm:w-auto px-4 py-3 bg-black text-white text-xs font-bold uppercase tracking-wider hover:bg-gray-800 disabled:bg-gray-400 transition-colors whitespace-nowrap text-center"
               >
                 <span v-if="verifyLoading">Sending...</span>
                 <span v-else>Verify</span>
               </button>
-              <div v-if="emailVerified" class="flex items-center px-3 bg-green-50 border-2 border-green-600">
+              <div v-if="emailVerified" class="flex items-center justify-center py-3 px-3 bg-green-50 border-2 border-green-600">
                 <CheckCircle :size="18" class="text-green-600" />
               </div>
             </div>
@@ -237,7 +247,7 @@ function googleSignup() {
               <div v-if="verifyError" class="p-2 bg-red-50 border border-red-300 text-red-600 text-xs font-bold">
                 {{ verifyError }}
               </div>
-              <div class="flex gap-2">
+              <div class="flex flex-col sm:flex-row gap-2">
                 <input
                   v-model="otpCode"
                   type="text"
@@ -245,13 +255,13 @@ function googleSignup() {
                   maxlength="6"
                   placeholder="Enter 6-digit OTP"
                   autocomplete="one-time-code"
-                  class="flex-1 px-4 py-3 border-2 border-black focus:ring-0 focus:border-gray-600 outline-none transition-all text-sm font-medium tracking-[0.2em] text-center"
+                  class="w-full sm:flex-1 px-4 py-3 border-2 border-black focus:ring-0 focus:border-gray-600 outline-none transition-all text-sm font-medium tracking-[0.2em] text-center"
                 />
                 <button
                   type="button"
                   :disabled="otpVerifying"
                   @click="handleVerifyOtp"
-                  class="px-4 py-3 bg-black text-white text-xs font-bold uppercase tracking-wider hover:bg-gray-800 disabled:bg-gray-400 transition-colors whitespace-nowrap"
+                  class="w-full sm:w-auto px-4 py-3 bg-black text-white text-xs font-bold uppercase tracking-wider hover:bg-gray-800 disabled:bg-gray-400 transition-colors whitespace-nowrap text-center"
                 >
                   <span v-if="otpVerifying">Verifying...</span>
                   <span v-else>Confirm</span>

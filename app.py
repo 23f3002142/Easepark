@@ -50,12 +50,17 @@ if redis_url and redis_url.strip():
         if redis_url.startswith("rediss://"):
             import ssl
             _kwargs["ssl_cert_reqs"] = ssl.CERT_NONE
+            _kwargs["ssl_check_hostname"] = False
         _r = _redis.from_url(redis_url, **_kwargs)
         _r.ping()
         # Flask-Limiter needs the storage URI; for rediss:// also pass ssl options
         app.config['RATELIMIT_STORAGE_URI'] = redis_url
+        app.config['RATELIMIT_SWALLOW_ERRORS'] = True
         if redis_url.startswith("rediss://"):
-            app.config['RATELIMIT_STORAGE_OPTIONS'] = {"ssl_cert_reqs": "none"}
+            app.config['RATELIMIT_STORAGE_OPTIONS'] = {
+                "ssl_cert_reqs": "none",
+                "ssl_check_hostname": False
+            }
         print(f"Rate limiter: using Redis ({redis_url[:30]}...)")
     except Exception as _e:
         print(f"Rate limiter: Redis unavailable ({_e}), falling back to in-memory")

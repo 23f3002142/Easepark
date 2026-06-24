@@ -178,6 +178,7 @@ def add_lot(valid_data):
     for i in range(1, int(max_spots) + 1):
         db.session.add(ParkingSpot(lot_id=new_lot.id, spot_number=str(i), status='A'))  # type: ignore
     db.session.commit()
+    invalidate_cache("lots*")
 
     return jsonify({"message": f"Lot '{name}' added with {max_spots} spots", "lot_id": new_lot.id}), 201
 
@@ -220,6 +221,7 @@ def edit_lot(valid_data, lot_id):
 
     lot.max_spots = new_max_spots
     db.session.commit()
+    invalidate_cache("lots*")
 
     return jsonify({"message": "Lot updated successfully"}), 200
 
@@ -287,6 +289,7 @@ def delete_lot(lot_id):
 
     lot.is_active = False
     db.session.commit()
+    invalidate_cache("lots*")
     return jsonify({"message": "Parking lot deleted"}), 200
 
 
@@ -357,6 +360,7 @@ def delete_spot(spot_id):
     db.session.delete(spot)
     lot.max_spots -= 1
     db.session.commit()
+    invalidate_cache("lots*")
 
     return jsonify({"message": "Spot deleted successfully"}), 200
 
