@@ -12,6 +12,7 @@ from sqlalchemy.orm import joinedload
 from extensions import limiter
 from cache import cached, invalidate_cache
 from utils.validation import validate_schema
+from utils.email import send_booking_otp
 from schemas.user_schemas import ProfileEditSchema, BookingSchema, VehicleSchema
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
