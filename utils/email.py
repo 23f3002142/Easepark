@@ -13,6 +13,7 @@ WHY a central utility instead of copy-pasting Brevo code everywhere?
 import os
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
+from utils.logger import logger
 
 
 def _get_brevo_api():
@@ -42,13 +43,13 @@ def send_email(to_email: str, subject: str, text_content: str) -> bool:
     )
     try:
         result = api_instance.send_transac_email(send_smtp_email)
-        print(f"[Email] Sent to {to_email} — ID: {result.message_id}")
+        logger.info(f"[Email] Sent to {to_email} — ID: {result.message_id}")
         return True
     except ApiException as e:
-        print(f"[Email] Brevo API error sending to {to_email}: {e.status} - {e.body}")
+        logger.error(f"[Email] Brevo API error sending to {to_email}: {e.status} - {e.body}")
         return False
     except Exception as e:
-        print(f"[Email] Unexpected error sending to {to_email}: {type(e).__name__}: {e}")
+        logger.exception(f"[Email] Unexpected error sending to {to_email}: {e}")
         return False
 
 

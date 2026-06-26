@@ -1,12 +1,43 @@
 services:
-  # ── Flask Backend ──
+  # ── PostgreSQL Database ──
+  db:
+    image: postgres:16
+    container_name: easepark_postgres
+    environment:
+      - POSTGRES_USER=easepark
+      - POSTGRES_PASSWORD=easepark
+      - POSTGRES_DB=easepark
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U easepark -d easepark"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis Cache & Rate Limiting ──
+  redis:
+    image: redis:7-alpine
+    container_name: easepark_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Flask Backend API ──
   backend:
     build: .
     container_name: easepark_backend
     env_file: .env
     environment:
+      - SQLALCHEMY_DATABASE_URI=postgresql://easepark:easepark@db:5432/easepark
       - REDIS_URL=redis://redis:6379/0
-      - FRONTEND_URL=http://localhost:5173
+      - FRONTEND_URL=http://localhost
       - BASE_URL=http://localhost:5000
     ports:
       - "5000:5000"
@@ -15,30 +46,23 @@ services:
       - /app/venv
       - /app/__pycache__
     depends_on:
-      - redis
-    # Use Flask dev server for local development (auto-reload on code changes)
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Auto-reload backend during development, using healthcheck-dependent service start
     command: flask run --host=0.0.0.0 --port=5000 --debug
 
-  # ── Vue Frontend (Vite dev server) ──
+  # ── Vue Frontend SPA (Nginx Production-ready Server) ──
   frontend:
     build:
       context: ./easepark-frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: easepark_frontend
     ports:
-      - "5173:5173"
-    volumes:
-      - ./easepark-frontend:/app
-      - /app/node_modules
-    environment:
-      - VITE_API_URL=/api
-      - VITE_PROXY_TARGET=http://backend:5000
+      - "80:80"
     depends_on:
       - backend
 
-  # ── Redis ──
-  redis:
-    image: "redis:alpine"
-    container_name: easepark_redis
-    ports:
-      - "6379:6379"
+volumes:
+  postgres_data:

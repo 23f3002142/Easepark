@@ -1,4 +1,6 @@
-from flask import Blueprint, request, jsonify, make_response
+from flask import request, jsonify, make_response
+from flask_smorest import Blueprint
+from utils.logger import logger
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.security import check_password_hash
 from models.user_model import Users, ParkingLot, ParkingSpot, Reservation, db, Payment, Notification, Vehicle
@@ -25,7 +27,7 @@ import razorpay
 import base64
 import math
 
-api_user_blueprint = Blueprint('api_user', __name__, url_prefix='/api/user')
+api_user_blueprint = Blueprint('api_user', __name__, url_prefix='/api/v1/user', description="User Parking Operations")
 
 razorpay_client = razorpay.Client(
     auth=(os.environ.get("RAZORPAY_KEY_ID"), os.environ.get("RAZORPAY_KEY_SECRET"))
@@ -102,6 +104,7 @@ def serialize_user(user):
 @jwt_required()
 @limiter.limit("10 per 1 minute")
 @cached(prefix="user_dashboard", ttl=60, per_user=True)
+@api_user_blueprint.response(200, description="User dashboard details")
 def dashboard():
     user = get_current_user()
     if not user or user.role != 'user':
@@ -195,6 +198,7 @@ def _invalidate_user_cache(user_id):
 @api_user_blueprint.route('/profile', methods=['GET'])
 @jwt_required()
 @limiter.limit("10 per 1 minute")
+@api_user_blueprint.response(200, description="User profile details")
 def profile_view():
     user = get_current_user()
     if not user or user.role != 'user':
@@ -205,7 +209,8 @@ def profile_view():
 @api_user_blueprint.route('/profile', methods=['PUT'])
 @jwt_required()
 @limiter.limit("10 per 1 minute")
-@validate_schema(ProfileEditSchema)
+@api_user_blueprint.arguments(ProfileEditSchema, location='json')
+@api_user_blueprint.response(200, description="Profile updated successfully")
 def profile_edit(valid_data):
     user = get_current_user()
     if not user or user.role != 'user':
@@ -453,7 +458,8 @@ def cleanup_stale_pending_reservations():
 @api_user_blueprint.route('/book/<int:lot_id>', methods=['POST'])
 @jwt_required()
 @limiter.limit("10 per 3 minute")
-@validate_schema(BookingSchema)
+@api_user_blueprint.arguments(BookingSchema, location='json')
+@api_user_blueprint.response(201, description="Spot reserved successfully")
 def reserve_spot(valid_data, lot_id):
     user = get_current_user()
     if not user or user.role != 'user':
@@ -901,7 +907,7 @@ def release_spot_free(reservation_id):
         if lot and spot:
             send_receipt_email(user, reservation, lot, spot)
     except Exception as e:
-        print("Error sending receipt email:", e)
+        logger.error(f"Error sending receipt email: {e}")
 
     return jsonify({
         "message": "Spot released successfully (payment skipped — beta).",
@@ -1031,7 +1037,7 @@ def payment_verify():
         if lot and spot:
             send_receipt_email(user, reservation, lot, spot)
     except Exception as e:
-        print("Error sending receipt email:", e)
+        logger.error(f"Error sending receipt email: {e}")
 
     return jsonify({"message": "Payment successful. Spot released.", "total_cost": total_cost}), 200
 
@@ -1109,7 +1115,7 @@ def send_receipt_email(user, reservation, lot, spot):
     try:
         api_instance.send_transac_email(send_smtp_email)
     except ApiException as e:
-        print("Brevo API Exception:", e)
+        logger.error(f"Brevo API Exception: {e}")
 
 
 @api_user_blueprint.route('/receipt/<int:reservation_id>', methods=['GET'])
@@ -1541,7 +1547,8 @@ def get_vehicles():
 
 @api_user_blueprint.route('/vehicles', methods=['POST'])
 @jwt_required()
-@validate_schema(VehicleSchema)
+@api_user_blueprint.arguments(VehicleSchema, location='json')
+@api_user_blueprint.response(201, description="Vehicle added successfully")
 def add_vehicle(valid_data):
     user = get_current_user()
     if not user or user.role != 'user':

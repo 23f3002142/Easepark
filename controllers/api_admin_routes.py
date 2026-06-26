@@ -1,4 +1,6 @@
-from flask import Blueprint, request, jsonify
+from flask import request, jsonify
+from flask_smorest import Blueprint
+from utils.logger import logger
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import func, or_, and_
 from sqlalchemy.orm import joinedload
@@ -10,7 +12,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from controllers.api_user_routes import calculate_parking_cost
 
-api_admin_blueprint = Blueprint('api_admin', __name__, url_prefix='/api/admin')
+api_admin_blueprint = Blueprint('api_admin', __name__, url_prefix='/api/v1/admin', description="Admin Operations")
 
 IST = ZoneInfo("Asia/Kolkata")
 UTC = ZoneInfo("UTC")
@@ -147,7 +149,8 @@ def profile_edit():
 # ─── Add Lot ───
 @api_admin_blueprint.route('/lots', methods=['POST'])
 @jwt_required()
-@validate_schema(AddLotSchema)
+@api_admin_blueprint.arguments(AddLotSchema, location='json')
+@api_admin_blueprint.response(201, description="Lot added successfully")
 def add_lot(valid_data):
     admin = get_admin_user()
     if not admin:
@@ -186,7 +189,8 @@ def add_lot(valid_data):
 # ─── Edit Lot ───
 @api_admin_blueprint.route('/lots/<int:lot_id>', methods=['PUT'])
 @jwt_required()
-@validate_schema(EditLotSchema)
+@api_admin_blueprint.arguments(EditLotSchema, location='json')
+@api_admin_blueprint.response(200, description="Lot edited successfully")
 def edit_lot(valid_data, lot_id):
     admin = get_admin_user()
     if not admin:

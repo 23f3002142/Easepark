@@ -1,9 +1,10 @@
-easepark-frontend/
 venv/
-__pycache__/
-*.pyc
+node_modules/
 .env
-.git/
-.gitignore
-*.md
-run.py
+.git
+*.pyc
+__pycache__/
+.github/
+dist/
+easepark-frontend/node_modules/
+easepark-frontend/dist/

@@ -4,6 +4,8 @@ import functools
 from flask import request
 from flask_jwt_extended import get_jwt_identity
 
+from utils.logger import logger
+
 try:
     import redis
     _redis_url = os.getenv("REDIS_URL")
@@ -15,11 +17,11 @@ try:
             _kwargs["ssl_check_hostname"] = False
         redis_client = redis.from_url(_redis_url, **_kwargs)
         redis_client.ping()
-        print("Cache: using Redis")
+        logger.info("Cache: using Redis")
     else:
         redis_client = None
 except Exception as _e:
-    print(f"Cache: Redis unavailable ({_e}), caching disabled")
+    logger.warning(f"Cache: Redis unavailable ({_e}), caching disabled")
     redis_client = None
 
 

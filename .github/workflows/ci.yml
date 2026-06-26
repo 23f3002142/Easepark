@@ -1,0 +1,87 @@
+name: EasePark CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  # ─── Lint & Static Analysis ───
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Linting Tools
+        run: |
+          pip install flake8
+
+      - name: Lint Backend with Flake8
+        run: |
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: easepark-frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        working-directory: easepark-frontend
+        run: npm ci
+
+      - name: Typecheck Frontend
+        working-directory: easepark-frontend
+        run: npx vue-tsc --noEmit
+
+  # ─── Run Tests ───
+  test:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Backend Dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-flask
+
+      - name: Run Backend Tests
+        run: |
+          pytest
+
+  # ─── Verify Docker Container Builds ───
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build Backend Image
+        run: |
+          docker build -t easepark-backend:latest .
+
+      - name: Build Frontend Image
+        working-directory: easepark-frontend
+        run: |
+          docker build -t easepark-frontend:latest .

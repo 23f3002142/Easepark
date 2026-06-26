@@ -40,7 +40,9 @@ ENDPOINTS:
   GET  /api/auth/google-authorize  – OAuth callback, redirects to Vue with token
 """
 
-from flask import Blueprint, request, jsonify, session, url_for, redirect, current_app
+from flask import request, jsonify, session, url_for, redirect, current_app
+from flask_smorest import Blueprint
+from utils.logger import logger
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import (
     create_access_token,
@@ -68,7 +70,7 @@ import random
 import base64
 import os
 
-api_auth = Blueprint('api_auth', __name__, url_prefix='/api/auth')
+api_auth = Blueprint('api_auth', __name__, url_prefix='/api/v1/auth', description="Authentication Operations")
 
 OTP_EXPIRY_MINUTES = 10
 
@@ -127,7 +129,8 @@ def _generate_unique_username(seed: str) -> str:
 
 @api_auth.route("/send-verification-otp", methods=["POST"])
 @limiter.limit("5 per minute")
-@validate_schema(SendOtpSchema)
+@api_auth.arguments(SendOtpSchema, location='json')
+@api_auth.response(200, description="Verification OTP sent to your email.")
 def send_verification_otp_endpoint(valid_data):
     """
     Sends a verification OTP to an email BEFORE the user account is created.
@@ -186,7 +189,7 @@ def _verify_email_otp(email: str, otp: str) -> bool:
                     return True
             return False
     except Exception as e:
-        print(f"[OTP Verify] Redis retrieval error: {e}")
+        logger.error(f"[OTP Verify] Redis retrieval error: {e}")
 
     # Fallback: check Flask session
     stored = session.get(f"email_otp:{email}")
@@ -207,7 +210,7 @@ def _is_email_verified(email: str) -> bool:
             val = redis_client.get(f"email_verified:{email}")
             return val == "true"
     except Exception as e:
-        print(f"[Verification Check] Redis read error: {e}")
+        logger.error(f"[Verification Check] Redis read error: {e}")
 
     # Fallback: check session
     val = session.get(f"email_verified:{email}")
@@ -225,7 +228,7 @@ def _clear_email_verified(email: str):
         if redis_client:
             redis_client.delete(f"email_verified:{email}")
     except Exception as e:
-        print(f"[Verification Clear] Redis delete error: {e}")
+        logger.error(f"[Verification Clear] Redis delete error: {e}")
     
     session.pop(f"email_verified:{email}", None)
     session.pop(f"email_verified_exp:{email}", None)
@@ -235,7 +238,9 @@ def _clear_email_verified(email: str):
 
 @api_auth.route("/verify-registration-otp", methods=["POST"])
 @limiter.limit("5 per minute")
-@validate_schema(VerifyRegistrationOtpSchema)
+@api_auth.arguments(VerifyRegistrationOtpSchema, location='json')
+@api_auth.response(200, description="Email verified successfully!")
+@api_auth.response(400, description="Invalid or expired OTP.")
 def verify_registration_otp(valid_data):
     """
     Verifies the OTP entered inline by the user before creating their account.
@@ -256,7 +261,7 @@ def verify_registration_otp(valid_data):
             session[f"email_verified:{email}"] = True
             session[f"email_verified_exp:{email}"] = (datetime.utcnow() + timedelta(minutes=15)).isoformat()
     except Exception as e:
-        print(f"[Verification Save] Redis save error: {e}")
+        logger.error(f"[Verification Save] Redis save error: {e}")
         session[f"email_verified:{email}"] = True
         session[f"email_verified_exp:{email}"] = (datetime.utcnow() + timedelta(minutes=15)).isoformat()
 
@@ -265,7 +270,10 @@ def verify_registration_otp(valid_data):
 
 @api_auth.route("/register", methods=["POST"])
 @limiter.limit("3 per minute")
-@validate_schema(RegisterSchema)
+@api_auth.arguments(RegisterSchema, location='json')
+@api_auth.response(201, description="Registration successful!")
+@api_auth.response(400, description="Email not verified first.")
+@api_auth.response(409, description="Username or Email already registered.")
 def register(valid_data):
     """
     Creates a new user account.
@@ -313,19 +321,17 @@ def register(valid_data):
 
 @api_auth.route("/verify-email", methods=["POST"])
 @limiter.limit("10 per minute")
-def verify_email():
+@api_auth.arguments(VerifyRegistrationOtpSchema, location='json')
+@api_auth.response(200, description="Email verified successfully! You can now log in.")
+def verify_email(valid_data):
     """
     Verifies a user's email with the OTP sent at registration.
 
     FLOW:
       Register → OTP email → user enters OTP here → is_verified = True → can book
     """
-    data = request.get_json() or {}
-    email = data.get("email", "").strip()
-    otp = data.get("otp", "").strip()
-
-    if not email or not otp:
-        return jsonify({"error": "Email and OTP are required"}), 400
+    email = valid_data.get("email").strip()
+    otp = valid_data.get("otp").strip()
 
     user = Users.query.filter_by(email=email).first()
     if not user:
@@ -357,13 +363,11 @@ def verify_email():
 
 @api_auth.route("/resend-verification", methods=["POST"])
 @limiter.limit("3 per minute")
-def resend_verification():
+@api_auth.arguments(SendOtpSchema, location='json')
+@api_auth.response(200, description="Verification OTP resent. Check your inbox.")
+def resend_verification(valid_data):
     """Resends the email verification OTP. Rate-limited to prevent email spam."""
-    data = request.get_json() or {}
-    email = data.get("email", "").strip()
-
-    if not email:
-        return jsonify({"error": "Email is required"}), 400
+    email = valid_data.get("email").strip()
 
     user = Users.query.filter_by(email=email).first()
     if not user:
@@ -385,7 +389,8 @@ def resend_verification():
 
 @api_auth.route("/login", methods=["POST"])
 @limiter.limit("5 per minute")
-@validate_schema(LoginSchema)
+@api_auth.arguments(LoginSchema, location='json')
+@api_auth.response(200, description="Login successful, returns tokens.")
 def login(valid_data):
     """
     Authenticates a user and returns BOTH an access token and a refresh token.
@@ -419,6 +424,7 @@ def login(valid_data):
 
 @api_auth.route("/refresh", methods=["POST"])
 @jwt_required(refresh=True)   # ← only accepts refresh tokens, not access tokens
+@api_auth.response(200, description="Token refreshed successfully.")
 def refresh():
     """
     Issues a new short-lived access token using a valid refresh token.
@@ -438,6 +444,7 @@ def refresh():
 
 @api_auth.route("/logout", methods=["POST"])
 @jwt_required()
+@api_auth.response(200, description="Logged out successfully")
 def logout():
     """
     Revokes the current access token by adding its JTI to the Redis blocklist.
@@ -461,7 +468,7 @@ def logout():
                 "revoked"
             )
     except Exception as e:
-        print(f"[Logout] Redis blocklist write failed: {e}")
+        logger.error(f"[Logout] Redis blocklist write failed: {e}")
         # We still return 200 — the frontend clears its tokens regardless.
         # The access token will naturally expire in ≤24h even without blocklisting.
 
@@ -472,6 +479,7 @@ def logout():
 
 @api_auth.route("/me", methods=["GET"])
 @jwt_required()
+@api_auth.response(200, description="Current user profile returned.")
 def me():
     user_id = get_jwt_identity()
     user = db.session.get(Users, int(user_id))
@@ -484,7 +492,8 @@ def me():
 
 @api_auth.route("/change-password", methods=["POST"])
 @jwt_required()
-@validate_schema(ChangePasswordSchema)
+@api_auth.arguments(ChangePasswordSchema, location='json')
+@api_auth.response(200, description="Password changed successfully")
 def change_password(valid_data):
     user_id = get_jwt_identity()
     user = db.session.get(Users, int(user_id))
@@ -521,7 +530,8 @@ def change_password(valid_data):
 
 @api_auth.route("/forgot-password", methods=["POST"])
 @limiter.limit("5 per minute")
-@validate_schema(ForgotPasswordSchema)
+@api_auth.arguments(ForgotPasswordSchema, location='json')
+@api_auth.response(200, description="A password reset OTP has been sent to your email.")
 def forgot_password(valid_data):
     """
     Step 1 of password reset: send a 6-digit OTP to the user's registered email.
@@ -554,7 +564,8 @@ def forgot_password(valid_data):
 
 @api_auth.route("/reset-password", methods=["POST"])
 @limiter.limit("5 per minute")
-@validate_schema(ResetPasswordSchema)
+@api_auth.arguments(ResetPasswordSchema, location='json')
+@api_auth.response(200, description="Password reset successfully. You can now log in.")
 def reset_password(valid_data):
     """
     Step 2 of password reset: verify the OTP and set the new password.
@@ -590,6 +601,7 @@ def reset_password(valid_data):
 # ── Google OAuth ──────────────────────────────────────────────────────────────
 
 @api_auth.route("/google-login", methods=["GET"])
+@api_auth.response(302, description="Redirects to Google OAuth authorization.")
 def google_login():
     base_url = os.getenv("BASE_URL")
     if not base_url:
@@ -603,6 +615,7 @@ def google_login():
 
 
 @api_auth.route("/google-authorize", methods=["GET"])
+@api_auth.response(302, description="Redirects to Vue frontend callback URL.")
 def google_authorize():
     """
     Google OAuth callback.
