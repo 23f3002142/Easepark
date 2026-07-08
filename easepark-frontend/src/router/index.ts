@@ -31,6 +31,23 @@ const routes = [
     component: () => import('@/pages/AuthCallbackPage.vue'),
   },
 
+  // ─── Public marketing / legal pages (visible to everyone) ───
+  {
+    path: '/about',
+    name: 'about',
+    component: () => import('@/pages/AboutPage.vue'),
+  },
+  {
+    path: '/privacy',
+    name: 'privacy',
+    component: () => import('@/pages/PrivacyPolicyPage.vue'),
+  },
+  {
+    path: '/terms',
+    name: 'terms',
+    component: () => import('@/pages/TermsPage.vue'),
+  },
+
   // ─── User Routes ───
   {
     path: '/dashboard',

@@ -14,7 +14,7 @@
     <meta name="keywords" content="smart parking, book parking, parking spots, reserve parking, parking app, find parking, EasePark" />
     <meta name="author" content="EasePark" />
     <meta name="robots" content="index, follow" />
-    <meta name="theme-color" content="#0d9488" />
+    <meta name="theme-color" content="#000000" />
     <link rel="canonical" href="https://easepark.app/" />
 
     <!-- Open Graph / Facebook / LinkedIn / WhatsApp -->
@@ -43,6 +43,109 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Structured data (JSON-LD) — Organization, WebSite, WebApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://easepark.app/#organization",
+          "name": "EasePark",
+          "url": "https://easepark.app/",
+          "logo": "https://easepark.app/favicon.png",
+          "description": "EasePark is a smart parking platform to find, reserve, and pay for parking spots in real time.",
+          "email": "support.easepark@gmail.com",
+          "sameAs": [
+            "https://github.com/23f3002142/Easepark"
+          ]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://easepark.app/#website",
+          "url": "https://easepark.app/",
+          "name": "EasePark",
+          "description": "Find, reserve, and pay for parking spots in real time.",
+          "publisher": { "@id": "https://easepark.app/#organization" }
+        },
+        {
+          "@type": "WebApplication",
+          "name": "EasePark",
+          "url": "https://easepark.app/",
+          "applicationCategory": "TravelApplication",
+          "operatingSystem": "Web",
+          "browserRequirements": "Requires a modern web browser with JavaScript enabled.",
+          "description": "Smart parking web app: see live availability on a map, book a spot in seconds with OTP verification, and pay securely — only for the time you park.",
+          "publisher": { "@id": "https://easepark.app/#organization" },
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "INR",
+            "description": "Free to sign up and browse. You only pay for the parking time you book."
+          }
+        }
+      ]
+    }
+    </script>
+
+    <!-- Structured data (JSON-LD) — FAQ (keep in sync with the FAQ section on the home page) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is EasePark?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "EasePark is a smart parking platform that lets you find, reserve, and pay for parking spots in real time. You can see live availability on an interactive map, book a spot in seconds, and pay only for the time you park."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I book a parking spot?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Create a free account, search by location or browse the live map, pick an available spot, and confirm your booking with an OTP. Then just drive in and park — no cash, no queues."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is my payment secure?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. All payments are processed through Razorpay, a trusted and PCI-compliant payment gateway. We never store your card, UPI, or bank details on our servers."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I cancel or release a booking?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Absolutely. You can release a booked spot from your dashboard at any time. You are charged only for the time you actually parked, based on the applicable pricing."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I need to create an account?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, a free account is required to book and manage parking. You can sign up with your email or use Google Sign-In for a one-tap experience."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is EasePark free to use?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Creating an account, browsing lots, and viewing availability are completely free. You only pay for the parking time you book."
+          }
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="app"></div>

@@ -7,13 +7,19 @@ import {
   Search, CircleParking,
   Menu, X,
   ArrowRight, CheckCircle2, Map, CalendarCheck, Clock,
-  Settings, Star
+  Settings, Star, Plus, Minus
 } from 'lucide-vue-next'
+import SiteFooter from '@/components/SiteFooter.vue'
 
 const authStore = useAuthStore()
 const isLoggedIn = computed(() => authStore.isAuthenticated)
 const mobileMenuOpen = ref(false)
 const scrolled = ref(false)
+const openFaq = ref<number | null>(0)
+
+const toggleFaq = (index: number) => {
+  openFaq.value = openFaq.value === index ? null : index
+}
 
 const handleScroll = () => {
   scrolled.value = window.scrollY > 20
@@ -112,6 +118,34 @@ const testimonials = [
     rating: 5,
   },
 ]
+
+// Keep these Q&As in sync with the FAQPage JSON-LD in index.html
+const faqs = [
+  {
+    question: 'What is EasePark?',
+    answer: 'EasePark is a smart parking platform that lets you find, reserve, and pay for parking spots in real time. You can see live availability on an interactive map, book a spot in seconds, and pay only for the time you park.',
+  },
+  {
+    question: 'How do I book a parking spot?',
+    answer: 'Create a free account, search by location or browse the live map, pick an available spot, and confirm your booking with an OTP. Then just drive in and park — no cash, no queues.',
+  },
+  {
+    question: 'Is my payment secure?',
+    answer: 'Yes. All payments are processed through Razorpay, a trusted and PCI-compliant payment gateway. We never store your card, UPI, or bank details on our servers.',
+  },
+  {
+    question: 'Can I cancel or release a booking?',
+    answer: 'Absolutely. You can release a booked spot from your dashboard at any time. You are charged only for the time you actually parked, based on the applicable pricing.',
+  },
+  {
+    question: 'Do I need to create an account?',
+    answer: 'Yes, a free account is required to book and manage parking. You can sign up with your email or use Google Sign-In for a one-tap experience.',
+  },
+  {
+    question: 'Is EasePark free to use?',
+    answer: 'Creating an account, browsing lots, and viewing availability are completely free. You only pay for the parking time you book.',
+  },
+]
 </script>
 
 <template>
@@ -142,7 +176,7 @@ const testimonials = [
                 { label: 'Features', href: '#features' },
                 { label: 'How It Works', href: '#how-it-works' },
                 { label: 'Dashboard', href: '#dashboard' },
-                { label: 'Contact', href: '#contact' },
+                { label: 'FAQ', href: '#faq' },
               ]"
               :key="link.href"
               :href="link.href"
@@ -198,7 +232,7 @@ const testimonials = [
           leave-to-class="opacity-0 -translate-y-2"
         >
           <div v-if="mobileMenuOpen" class="lg:hidden absolute top-full left-0 right-0 bg-white border-b border-gray-200 py-4 px-6 shadow-xl space-y-4">
-            <a v-for="link in ['Features', 'How It Works', 'Dashboard', 'Contact']" :key="link" :href="`#${link.toLowerCase().replace(/ /g, '-')}`" @click="mobileMenuOpen = false" class="block text-gray-900 font-medium hover:text-black text-base transition-colors">
+            <a v-for="link in ['Features', 'How It Works', 'Dashboard', 'FAQ']" :key="link" :href="`#${link.toLowerCase().replace(/ /g, '-')}`" @click="mobileMenuOpen = false" class="block text-gray-900 font-medium hover:text-black text-base transition-colors">
               {{ link }}
             </a>
             <hr class="border-gray-100" />
@@ -473,6 +507,58 @@ const testimonials = [
       </div>
     </section>
 
+    <!-- ═══════════════════════════════ FAQ (WHITE) ═══════════════════════════════ -->
+    <section id="faq" class="py-32 bg-white border-t-2 border-black">
+      <div class="max-w-4xl mx-auto px-6 lg:px-8">
+        <div class="max-w-2xl mb-16">
+          <p class="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">FAQ</p>
+          <h2 class="text-4xl md:text-5xl font-bold tracking-tighter text-black mb-6">Questions, answered.</h2>
+          <p class="text-xl text-gray-600 font-light leading-relaxed">Everything you need to know before you park with EasePark.</p>
+        </div>
+
+        <div class="space-y-4">
+          <div
+            v-for="(faq, index) in faqs"
+            :key="index"
+            class="border-2 border-black bg-white transition-colors"
+            :class="openFaq === index ? 'shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]' : ''"
+          >
+            <button
+              type="button"
+              class="w-full flex items-center justify-between gap-6 p-6 text-left"
+              :aria-expanded="openFaq === index"
+              @click="toggleFaq(index)"
+            >
+              <span class="text-lg font-bold tracking-tight text-black">{{ faq.question }}</span>
+              <span class="w-8 h-8 shrink-0 bg-black text-white flex items-center justify-center">
+                <Minus v-if="openFaq === index" :size="18" />
+                <Plus v-else :size="18" />
+              </span>
+            </button>
+            <transition
+              enter-active-class="transition-all duration-200 ease-out overflow-hidden"
+              enter-from-class="max-h-0 opacity-0"
+              enter-to-class="max-h-96 opacity-100"
+              leave-active-class="transition-all duration-150 ease-in overflow-hidden"
+              leave-from-class="max-h-96 opacity-100"
+              leave-to-class="max-h-0 opacity-0"
+            >
+              <div v-if="openFaq === index" class="px-6 pb-6 -mt-1">
+                <p class="text-base text-gray-600 leading-relaxed font-medium border-t-2 border-gray-100 pt-4">{{ faq.answer }}</p>
+              </div>
+            </transition>
+          </div>
+        </div>
+
+        <div class="mt-12 text-center">
+          <p class="text-base text-gray-600 font-medium">
+            Still have questions?
+            <a href="mailto:support.easepark@gmail.com" class="text-black font-bold underline underline-offset-2 hover:text-gray-500 transition-colors">Get in touch</a>.
+          </p>
+        </div>
+      </div>
+    </section>
+
     <!-- ═══════════════════════════════ FINAL CTA (BLACK) ═══════════════════════════════ -->
     <section class="py-40 bg-black text-white border-t-2 border-black text-center relative">
       <!-- Grid background -->
@@ -480,7 +566,7 @@ const testimonials = [
       
       <div class="relative z-10 max-w-3xl mx-auto px-6">
         <h2 class="text-5xl md:text-7xl font-bold tracking-tighter mb-8 leading-tight">
-          Ready to deploy?
+          Ready to Park?
         </h2>
         <p class="text-xl text-gray-400 font-light mb-12 max-w-lg mx-auto">
           Create an account and initialize your smart parking workflow in seconds.
@@ -494,57 +580,7 @@ const testimonials = [
       </div>
     </section>
 
-    <!-- ═══════════════════════════════ FOOTER (WHITE) ═══════════════════════════════ -->
-    <footer class="bg-white border-t-2 border-black text-black">
-      <div class="max-w-7xl mx-auto px-6 lg:px-8 py-20">
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-12 lg:gap-16 mb-16">
-          <div class="col-span-2 md:col-span-1">
-            <div class="flex items-center gap-3 mb-6">
-              <div class="w-8 h-8 bg-black flex items-center justify-center">
-                <CircleParking :size="16" class="text-white" />
-              </div>
-              <span class="font-bold text-xl uppercase tracking-widest">EasePark</span>
-            </div>
-            <p class="text-sm text-gray-600 font-medium max-w-xs leading-relaxed">
-              High-performance parking infrastructure for the modern city.
-            </p>
-          </div>
-
-          <div>
-            <p class="text-sm font-bold uppercase tracking-widest mb-6">Product</p>
-            <ul class="space-y-4">
-              <li><a href="#features" class="text-sm font-medium text-gray-600 hover:text-black transition-colors">Features</a></li>
-              <li><a href="#dashboard" class="text-sm font-medium text-gray-600 hover:text-black transition-colors">Dashboard</a></li>
-              <li><RouterLink to="/register" class="text-sm font-medium text-gray-600 hover:text-black transition-colors">Sign up</RouterLink></li>
-            </ul>
-          </div>
-
-          <div>
-            <p class="text-sm font-bold uppercase tracking-widest mb-6">Connect</p>
-            <ul class="space-y-4">
-              <li><a href="#" class="text-sm font-medium text-gray-600 hover:text-black transition-colors">Twitter / X</a></li>
-              <li><a href="#" class="text-sm font-medium text-gray-600 hover:text-black transition-colors">GitHub</a></li>
-              <li><a href="#" class="text-sm font-medium text-gray-600 hover:text-black transition-colors">LinkedIn</a></li>
-            </ul>
-          </div>
-
-          <div>
-            <p class="text-sm font-bold uppercase tracking-widest mb-6">Legal</p>
-            <ul class="space-y-4">
-              <li><a href="#" class="text-sm font-medium text-gray-600 hover:text-black transition-colors">Privacy Policy</a></li>
-              <li><a href="#" class="text-sm font-medium text-gray-600 hover:text-black transition-colors">Terms of Service</a></li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="pt-8 border-t-2 border-black flex flex-col md:flex-row items-center justify-between gap-4">
-          <p class="text-sm font-bold font-mono text-gray-500">&copy; 2025 EASEPARK_SYS.</p>
-          <div class="flex items-center gap-3 text-sm font-bold font-mono">
-            <span class="w-3 h-3 bg-black rounded-full animate-pulse-soft"></span>
-            ALL SYSTEMS NORMAL
-          </div>
-        </div>
-      </div>
-    </footer>
+    <!-- ═══════════════════════════════ FOOTER ═══════════════════════════════ -->
+    <SiteFooter />
   </div>
 </template>
