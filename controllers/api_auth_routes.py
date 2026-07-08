@@ -100,7 +100,12 @@ def serialize_user(user):
 
 
 def _normalized_frontend_url() -> str:
-    return os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+    # FRONTEND_URL may hold a comma-separated list of allowed origins (used for CORS),
+    # e.g. "https://easepark.app,https://www.easepark.app". For redirects we need a
+    # single, valid URL — so take the first non-empty origin.
+    raw = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    first = next((o.strip() for o in raw.split(",") if o.strip()), "http://localhost:5173")
+    return first.rstrip("/")
 
 
 def _oauth_error_redirect(message: str):
@@ -628,7 +633,11 @@ def google_authorize():
         token = oauth.google.authorize_access_token()  # type: ignore
         nonce = session.pop("nonce", None)
         user_info = oauth.google.parse_id_token(token, nonce=nonce)  # type: ignore
-    except Exception:
+    except Exception as e:
+        # Log the real cause so OAuth failures are diagnosable in the server logs
+        # (common culprits: redirect_uri/scope mismatch, lost session nonce/state,
+        # or an invalid GOOGLE_CLIENT_ID/SECRET).
+        logger.error(f"[oauth] Google sign-in failed: {type(e).__name__}: {e}")
         return _oauth_error_redirect("Google sign-in failed. Please try again.")
 
     email = (user_info.get("email") or "").strip().lower() if user_info else ""
