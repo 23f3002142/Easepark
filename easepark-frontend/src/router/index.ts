@@ -6,18 +6,33 @@ const routes = [
     path: '/',
     name: 'home',
     component: () => import('@/pages/HomePage.vue'),
+    meta: {
+      title: 'EasePark — Book Parking Online | Find & Reserve Parking Near You',
+      description:
+        'EasePark is a smart parking app to find, reserve, and pay for parking near you in real time. Book parking online in seconds and see live availability on a map.',
+    },
   },
   {
     path: '/login',
     name: 'login',
     component: () => import('@/pages/LoginPage.vue'),
-    meta: { guest: true },
+    meta: {
+      guest: true,
+      title: 'Log In — EasePark Smart Parking App',
+      description:
+        'Log in to EasePark to find, book, and manage parking near you. Reserve parking spots online in real time.',
+    },
   },
   {
     path: '/register',
     name: 'register',
     component: () => import('@/pages/RegisterPage.vue'),
-    meta: { guest: true },
+    meta: {
+      guest: true,
+      title: 'Sign Up — Book & Reserve Parking Online | EasePark',
+      description:
+        'Create a free EasePark account to book parking online, reserve spots near you, and pay only for the time you park. Sign up in seconds.',
+    },
   },
   {
     path: '/forgot-password',
@@ -36,16 +51,31 @@ const routes = [
     path: '/about',
     name: 'about',
     component: () => import('@/pages/AboutPage.vue'),
+    meta: {
+      title: 'About EasePark — The Smart Parking App to Book Parking Online',
+      description:
+        'Learn about EasePark, the smart parking platform that lets you find, reserve, and pay for parking near you in real time — and helps operators manage lots.',
+    },
   },
   {
     path: '/privacy',
     name: 'privacy',
     component: () => import('@/pages/PrivacyPolicyPage.vue'),
+    meta: {
+      title: 'Privacy Policy — EasePark',
+      description:
+        'How EasePark collects, uses, and protects your data when you book and manage parking online.',
+    },
   },
   {
     path: '/terms',
     name: 'terms',
     component: () => import('@/pages/TermsPage.vue'),
+    meta: {
+      title: 'Terms of Service — EasePark',
+      description:
+        'The terms that govern your use of EasePark, the online parking booking platform.',
+    },
   },
 
   // ─── User Routes ───
@@ -214,6 +244,42 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   next()
+})
+
+// ── Per-page SEO: set <title>, meta description, and canonical on each route ──
+// Google renders our JS, so these client-side updates are picked up for indexing.
+const SITE_ORIGIN = 'https://easepark.app'
+const DEFAULT_TITLE = 'EasePark — Book Parking Online | Find & Reserve Parking Near You'
+const DEFAULT_DESCRIPTION =
+  'EasePark is a smart parking app to find, reserve, and pay for parking near you in real time. Book parking online in seconds and see live availability on a map.'
+
+function upsertMeta(name: string, content: string) {
+  let el = document.head.querySelector<HTMLMetaElement>(`meta[name="${name}"]`)
+  if (!el) {
+    el = document.createElement('meta')
+    el.setAttribute('name', name)
+    document.head.appendChild(el)
+  }
+  el.setAttribute('content', content)
+}
+
+function upsertCanonical(href: string) {
+  let el = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]')
+  if (!el) {
+    el = document.createElement('link')
+    el.setAttribute('rel', 'canonical')
+    document.head.appendChild(el)
+  }
+  el.setAttribute('href', href)
+}
+
+router.afterEach((to) => {
+  const title = (to.meta.title as string) || DEFAULT_TITLE
+  const description = (to.meta.description as string) || DEFAULT_DESCRIPTION
+  document.title = title
+  upsertMeta('description', description)
+  // Canonical always points at the apex, no trailing slash except root
+  upsertCanonical(SITE_ORIGIN + (to.path === '/' ? '/' : to.path))
 })
 
 export default router

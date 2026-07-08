@@ -37,8 +37,9 @@ const values = [
           We are killing the<br />parking hunt.
         </h1>
         <p class="text-lg md:text-xl text-gray-300 font-light leading-relaxed mt-8 max-w-2xl">
-          EasePark is a smart parking platform that lets drivers find, reserve, and pay for parking spots
-          in real time — while giving lot operators a live command center to manage capacity, pricing, and revenue.
+          EasePark is a smart parking app that lets drivers find, reserve, and pay for parking spots
+          near you in real time — book parking online in seconds, while lot operators get a live command
+          center to manage capacity, pricing, and revenue.
         </p>
       </div>
     </section>

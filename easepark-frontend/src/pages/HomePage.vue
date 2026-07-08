@@ -268,7 +268,7 @@ const faqs = [
             </h1>
 
             <p class="text-lg md:text-xl text-gray-300 mb-10 leading-relaxed font-light max-w-lg">
-              The high-contrast, high-performance platform to find, book, and manage your parking across the city seamlessly.
+              EasePark is a smart parking app to find, book, and pay for parking near you in real time. Reserve a spot on the live map and skip the hunt — book parking online in seconds.
             </p>
 
             <div class="flex flex-col sm:flex-row gap-4">
@@ -350,7 +350,7 @@ const faqs = [
       <div class="max-w-7xl mx-auto px-6 lg:px-8">
         <div class="max-w-3xl mb-20">
           <h2 class="text-4xl md:text-5xl font-bold tracking-tighter text-black mb-6">Engineered for speed.</h2>
-          <p class="text-xl text-gray-600 font-light leading-relaxed">A strictly uncompromised toolset designed to get you parked and moving without friction.</p>
+          <p class="text-xl text-gray-600 font-light leading-relaxed">Everything you need to find parking near you, reserve a spot online, and pay securely — real-time availability, instant booking, and cashless payments in one smart parking app.</p>
         </div>
 
         <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
