@@ -1,0 +1,19 @@
+# EasePark robots.txt
+User-agent: *
+Allow: /
+
+# Private / auth-gated areas — no value being indexed
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /profile
+Disallow: /bookings
+Disallow: /vehicles
+Disallow: /notifications
+Disallow: /summary
+Disallow: /book
+Disallow: /release
+Disallow: /change-password
+Disallow: /forgot-password
+Disallow: /auth/
+
+Sitemap: https://easepark.app/sitemap.xml
